@@ -1,5 +1,3 @@
-// Simple prototype: click-to-select matching game with editor + iframe config generation
-
 const langSelect = document.getElementById('lang');
 const pairsInput = document.getElementById('pairsInput');
 const previewBtn = document.getElementById('previewBtn');
