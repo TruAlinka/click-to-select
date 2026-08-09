@@ -1,103 +1,511 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Matching Game Editor — Prototype</title>
-  <link rel="stylesheet" href="styles.css">
+  <title>Matching Game — Редактор и Игра</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --accent:#2dd4bf;
+      --muted:#9aa4b2;
+      --success:#16a34a;
+      --danger:#ef4444;
+      --glass: rgba(255,255,255,0.04);
+      --radius:12px;
+      --gap:12px;
+    }
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
+    body{margin:0;padding:16px;background:linear-gradient(180deg,#071127 0%, #081428 100%);color:#e6eef6;min-height:100vh}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    header h1{font-size:18px;margin:0}
+    .container{display:grid;grid-template-columns:1fr 520px;gap:16px;align-items:start}
+    .panel{background:var(--card);padding:14px;border-radius:var(--radius);box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    .editor .hint{color:var(--muted);font-size:13px;margin-bottom:8px}
+    textarea, input, select, button{font:inherit}
+    textarea{width:100%;min-height:220px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);color:inherit;resize:vertical}
+    .row{display:flex;gap:12px;margin-bottom:12px}
+    .row > div{flex:1}
+    label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    button{background:transparent;color:var(--accent);border:1px solid rgba(255,255,255,0.05);padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.primary{background:var(--accent);color:#042022;border:0}
+    .output textarea{min-height:80px}
+    .preview-panel{display:flex;flex-direction:column;gap:8px;height:100%}
+    .stage{flex:1;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;align-items:stretch;overflow:auto}
+    .game-header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .game-area{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+    .column{display:flex;flex-direction:column;gap:10px}
+    .card{background:var(--glass);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);cursor:pointer;display:flex;align-items:center;gap:10px}
+    .card.disabled{opacity:0.35;cursor:default}
+    .card img{max-width:120px;max-height:90px;object-fit:contain;border-radius:6px}
+    .card .text{font-size:15px;color:#e8f9f5}
+    .selected{outline:3px solid rgba(45,212,191,0.18);box-shadow:0 6px 20px rgba(45,212,191,0.06)}
+    .correct{background:linear-gradient(90deg,var(--success),rgba(0,0,0,0.05));border:1px solid rgba(0,0,0,0.1);color:#042022}
+    .wrong{animation:shake 300ms ease}
+    @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
+    .small{font-size:13px;color:var(--muted)}
+    .controls-inline{display:flex;gap:8px;align-items:center}
+    .stats{display:flex;gap:12px;align-items:center}
+    .flex-vertical{display:flex;flex-direction:column}
+    .hidden{display:none}
+    footer{margin-top:12px;color:var(--muted);font-size:13px}
+    /* responsive for small screens */
+    @media (max-width:900px){
+      .container{grid-template-columns:1fr; padding-bottom:40px}
+      .game-area{grid-template-columns:1fr;align-items:stretch}
+    }
+    /* scaled items in iframe: use CSS variable --scale if needed */
+    .card img{width:100%;height:auto}
+  </style>
 </head>
 <body>
-  <div id="app">
-    <header>
-      <h1 id="title">Matching Game Editor</h1>
-      <div class="controls">
-        <label for="lang">Language:</label>
-        <select id="lang">
-          <option value="en">English</option>
-          <option value="ru">Русский</option>
-          <option value="de">Deutsch</option>
-          <option value="es">Español</option>
-          <option value="fr">Français</option>
-        </select>
+  <header>
+    <h1>Matching Game — Редактор</h1>
+    <div class="small">Вставляйте пары A | B — текст или ссылка на изображение (gif/png/jpg).</div>
+  </header>
+
+  <main class="container" id="appRoot">
+    <section class="panel editor" id="editorPanel">
+      <div class="hint">Формат: одна пара на строку. Разделители: | , \t , => , - . Примеры:
+        <div class="small">apple | https://.../apple.gif</div>
+        <div class="small">кошка | cat.png</div>
       </div>
-    </header>
 
-    <main>
-      <section class="editor">
-        <h2 data-i18n="editor_heading">Editor</h2>
-        <div class="row">
-          <div class="col">
-            <label data-i18n="pairs_label">Pairs (one per line, A - B)</label>
-            <textarea id="pairsInput" placeholder="apple - яблоко\nhttps://example.com/img1.gif - cat\nhello\tHola"></textarea>
-            <div class="hint" data-i18n="pairs_hint">Each line: A and B separated by a tab, ' - ', '|' or '↔'. A or B can be text or image URL.</div>
+      <label>Пары (левое и правое через разделитель)</label>
+      <textarea id="pairsInput" placeholder="apple | https://example.com/apple.gif
+кошка | https://example.com/cat.png
+banana | банан"></textarea>
+
+      <div class="row">
+        <div>
+          <label>Настройки</label>
+          <div class="row">
+            <div style="flex:1">
+              <label class="small">Кол-во столбцов (адаптируется автоматически)</label>
+              <select id="matchMode">
+                <option value="pairs">Пары A ↔ B</option>
+              </select>
+            </div>
+            <div style="width:160px">
+              <label class="small">Размер превью высота (px)</label>
+              <input id="previewH" type="number" min="200" value="520" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)">
+            </div>
           </div>
         </div>
+      </div>
 
-        <div class="row settings">
-          <div>
-            <label data-i18n="background">Background:</label>
-            <select id="bgType">
-              <option value="palette">Palette</option>
-              <option value="transparent">Transparent</option>
-              <option value="blur">Blur</option>
-              <option value="glitch">Glitch</option>
-              <option value="mist">Mist</option>
-            </select>
+      <div class="actions">
+        <button id="previewBtn" class="primary">Preview</button>
+        <button id="generateBtn">Generate iframe</button>
+        <button id="startBtn">Start in new tab</button>
+        <button id="clearBtn">Clear</button>
+      </div>
+
+      <div style="margin-top:10px">
+        <label>Embed code</label>
+        <textarea id="embedCode" readonly placeholder="Сгенерируйте iframe — код появится здесь"></textarea>
+      </div>
+    </section>
+
+    <section class="panel preview-panel" id="previewPanel">
+      <div class="game-header">
+        <div>
+          <strong>Preview / Game</strong>
+          <div class="small">Кликайте по карточкам — сопоставляйте пары.</div>
+        </div>
+        <div class="stats">
+          <div class="small">Осталось: <span id="leftCount">0</span></div>
+          <div class="small">Успехи: <span id="score">0</span></div>
+          <div class="controls-inline">
+            <button id="resetBtn">Reset</button>
+            <button id="fullscreenBtn">Open full</button>
           </div>
-          <div id="paletteControls">
-            <label data-i18n="primary_color">Primary</label>
-            <input type="color" id="color1" value="#3498db">
-            <label data-i18n="secondary_color">Secondary</label>
-            <input type="color" id="color2" value="#9b59b6">
-          </div>
-          <div>
-            <label data-i18n="iframe_size">Iframe size</label>
-            <input id="iframeW" type="number" min="200" value="800"> x <input id="iframeH" type="number" min="200" value="600">
-          </div>
         </div>
+      </div>
 
-        <div class="actions">
-          <button id="previewBtn" class="primary" data-i18n="preview">Preview</button>
-          <button id="generateBtn" data-i18n="generate_iframe">Generate iframe</button>
-          <button id="startBtn" class="primary" data-i18n="start">Start</button>
+      <div id="stage" class="stage" style="min-height:300px">
+        <div id="gameArea" class="game-area">
+          <div class="column" id="colLeft"></div>
+          <div class="column" id="colRight"></div>
         </div>
+        <div id="message" class="small" style="margin-top:6px"></div>
+      </div>
+    </section>
+  </main>
 
-        <div class="output">
-          <label data-i18n="embed_code">Embed code</label>
-          <textarea id="embedCode" readonly></textarea>
-        </div>
-      </section>
+  <footer>Prototype — вставляйте iframe в платформы (Genially и т.п.).</footer>
 
-      <section class="preview">
-        <h2 data-i18n="preview_heading">Preview / Game</h2>
-        <div id="stage" class="stage">
-          <div id="bgLayer" class="bg-layer"></div>
-          <div id="gameArea" class="game-area"></div>
-        </div>
-      </section>
-    </main>
+<script>
+/* Utilities for safe base64 <-> JSON */
+function encodeGame(obj){
+  const s = JSON.stringify(obj);
+  // safe base64
+  return btoa(unescape(encodeURIComponent(s)));
+}
+function decodeGame(b){
+  try{
+    return JSON.parse(decodeURIComponent(escape(atob(b))));
+  }catch(e){
+    return null;
+  }
+}
 
-    <footer>
-      <small>Prototype — host on GitHub Pages. No auth. Images: external URLs only.</small>
-    </footer>
-  </div>
+function parsePairs(text){
+  const lines = text.split(/\\r?\\n/).map(l=>l.trim()).filter(Boolean);
+  const pairs = [];
+  for(const line of lines){
+    // split by common separators
+    const sepMatch = line.match(/\\s*(?:\\||=>|\\t|\\-|:|,)\\s*/);
+    let left,right;
+    if(sepMatch){
+      const parts = line.split(/\\s*(?:\\||=>|\\t|\\-|:|,)\\s*/);
+      left = parts[0] || '';
+      right = parts.slice(1).join('|') || '';
+    }else{
+      // if no separator, try split by whitespace
+      const parts = line.split(/\\s+/);
+      left = parts[0] || '';
+      right = parts.slice(1).join(' ') || '';
+    }
+    left = left.trim();
+    right = right.trim();
+    if(!left || !right) continue;
+    pairs.push({left, right});
+  }
+  return pairs;
+}
 
-  <script src="app.js"></script>
+function isImageUrl(s){
+  if(!s) return false;
+  try {
+    const u = new URL(s, location.href);
+    const path = u.pathname.toLowerCase();
+    return /\.(gif|png|jpe?g|svg|webp)$/.test(path) || s.startsWith('data:image');
+  } catch(e){
+    return false;
+  }
+}
+
+/* shuffle */
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+/* Rendering game */
+let state = {
+  pairs: [], // array of {id,left,right}
+  leftItems: [], // shuffled
+  rightItems: [],
+  mapping: {}, // leftId -> rightId
+  selected: null, // {side:'left'|'right', id}
+  score:0
+};
+
+const colLeft = document.getElementById('colLeft');
+const colRight = document.getElementById('colRight');
+const leftCountEl = document.getElementById('leftCount');
+const scoreEl = document.getElementById('score');
+const messageEl = document.getElementById('message');
+
+function buildStateFromPairs(pairsRaw){
+  const pairs = pairsRaw.map((p,i)=>({
+    id: 'p'+i,
+    left: p.left,
+    right: p.right,
+    leftIsImage: isImageUrl(p.left),
+    rightIsImage: isImageUrl(p.right)
+  }));
+  state.pairs = pairs;
+  // build items
+  state.leftItems = shuffle(pairs.map(p=>({id:p.id, text:p.left, isImage:p.leftIsImage})));
+  state.rightItems = shuffle(pairs.map(p=>({id:p.id, text:p.right, isImage:p.rightIsImage})));
+  state.mapping = {};
+  pairs.forEach(p=> state.mapping[p.id] = p.id);
+  state.selected = null;
+  state.score = 0;
+}
+
+function clearBoard(){
+  colLeft.innerHTML='';
+  colRight.innerHTML='';
+  messageEl.textContent='';
+}
+
+function renderBoard(){
+  clearBoard();
+  leftCountEl.textContent = state.leftItems.length;
+  scoreEl.textContent = state.score;
+  // left column
+  state.leftItems.forEach(item=>{
+    const card = document.createElement('div');
+    card.className='card';
+    card.dataset.side='left';
+    card.dataset.id=item.id;
+    if(item.isImage){
+      const img = document.createElement('img');
+      img.src = item.text;
+      img.alt = '';
+      card.appendChild(img);
+    }else{
+      const txt = document.createElement('div');
+      txt.className='text';
+      txt.textContent = item.text;
+      card.appendChild(txt);
+    }
+    card.addEventListener('click', onCardClick);
+    colLeft.appendChild(card);
+  });
+  // right column
+  state.rightItems.forEach(item=>{
+    const card = document.createElement('div');
+    card.className='card';
+    card.dataset.side='right';
+    card.dataset.id=item.id;
+    if(item.isImage){
+      const img = document.createElement('img');
+      img.src = item.text;
+      img.alt = '';
+      card.appendChild(img);
+    }else{
+      const txt = document.createElement('div');
+      txt.className='text';
+      txt.textContent = item.text;
+      card.appendChild(txt);
+    }
+    card.addEventListener('click', onCardClick);
+    colRight.appendChild(card);
+  });
+}
+
+function onCardClick(e){
+  const card = e.currentTarget;
+  if(card.classList.contains('disabled')) return;
+  const side = card.dataset.side;
+  const id = card.dataset.id;
+
+  // first click
+  if(!state.selected){
+    state.selected = {side, id, el:card};
+    card.classList.add('selected');
+    messageEl.textContent = 'Выбрано: ' + (side === 'left' ? 'лево' : 'право');
+    return;
+  }
+
+  // clicking same card again -> unselect
+  if(state.selected.el === card){
+    state.selected = null;
+    card.classList.remove('selected');
+    messageEl.textContent = '';
+    return;
+  }
+
+  // if same side clicked, switch selection
+  if(state.selected.side === side){
+    state.selected.el.classList.remove('selected');
+    state.selected = {side, id, el:card};
+    card.classList.add('selected');
+    messageEl.textContent = '';
+    return;
+  }
+
+  // now selected.side != side -> check match
+  const leftId = (side === 'left') ? id : state.selected.id;
+  const rightId = (side === 'right') ? id : state.selected.id;
+
+  const leftCard = (side === 'left') ? card : state.selected.el;
+  const rightCard = (side === 'right') ? card : state.selected.el;
+
+  // correct if mapping[leftId] === rightId
+  if(state.mapping[leftId] === rightId){
+    // mark correct
+    leftCard.classList.add('correct','disabled');
+    rightCard.classList.add('correct','disabled');
+    leftCard.classList.remove('selected');
+    rightCard.classList.remove('selected');
+
+    // remove items from arrays
+    state.leftItems = state.leftItems.filter(it=>it.id !== leftId);
+    state.rightItems = state.rightItems.filter(it=>it.id !== rightId);
+    state.score++;
+    scoreEl.textContent = state.score;
+    leftCountEl.textContent = state.leftItems.length;
+
+    messageEl.textContent = 'Правильно!';
+    // play success briefly
+    setTimeout(()=>{
+      // re-render to ensure UI consistent
+      renderBoard();
+      if(state.leftItems.length === 0){
+        messageEl.textContent = 'Поздравляем! Все пары сопоставлены.';
+      }
+    }, 250);
+
+    state.selected = null;
+    return;
+  }else{
+    // wrong
+    leftCard.classList.add('wrong');
+    rightCard.classList.add('wrong');
+    messageEl.textContent = 'Неправильно...';
+    setTimeout(()=>{
+      leftCard.classList.remove('wrong');
+      rightCard.classList.remove('wrong');
+      if(state.selected) state.selected.el.classList.remove('selected');
+      state.selected = null;
+      messageEl.textContent = '';
+    }, 500);
+    return;
+  }
+}
+
+/* Controls */
+const pairsInput = document.getElementById('pairsInput');
+const previewBtn = document.getElementById('previewBtn');
+const generateBtn = document.getElementById('generateBtn');
+const embedCodeEl = document.getElementById('embedCode');
+const resetBtn = document.getElementById('resetBtn');
+const startBtn = document.getElementById('startBtn');
+const clearBtn = document.getElementById('clearBtn');
+const previewH = document.getElementById('previewH');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+function buildAndRender(){
+  const raw = parsePairs(pairsInput.value);
+  if(raw.length===0){
+    messageEl.textContent = 'Нет пар для отображения.';
+    clearBoard();
+    leftCountEl.textContent = '0';
+    scoreEl.textContent = '0';
+    return;
+  }
+  buildStateFromPairs(raw);
+  renderBoard();
+}
+
+previewBtn.addEventListener('click', ()=>{
+  buildAndRender();
+  // adjust preview height
+  const h = parseInt(previewH.value,10) || 520;
+  document.getElementById('stage').style.minHeight = h + 'px';
+});
+
+generateBtn.addEventListener('click', ()=>{
+  const raw = parsePairs(pairsInput.value);
+  if(raw.length===0){
+    embedCodeEl.value = '';
+    alert('Сначала добавьте пары в редактор.');
+    return;
+  }
+  const gameObj = {pairs: raw};
+  const token = encodeGame(gameObj);
+  // construct src - use location.href as base to be safe for file:// and GH
+  let base;
+  try{
+    base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0];
+  }catch(e){
+    base = location.href.split('?')[0];
+  }
+  const src = base + '?game=' + encodeURIComponent(token) + '&embed=1';
+  const iframeCode = `<iframe src="${src}" style="width:100%;height:600px;border:0;" allowfullscreen></iframe>`;
+  embedCodeEl.value = iframeCode;
+  // also show small preview
+  buildAndRender();
+  messageEl.textContent = 'Iframe сгенерирован. Скопируйте код справа.';
+});
+
+resetBtn.addEventListener('click', ()=>{
+  buildAndRender();
+  messageEl.textContent = 'Игра сброшена.';
+});
+
+startBtn.addEventListener('click', ()=>{
+  const raw = parsePairs(pairsInput.value);
+  if(raw.length===0){
+    alert('Добавьте пары.');
+    return;
+  }
+  const token = encodeGame({pairs: raw});
+  let base;
+  try{
+    base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0];
+  }catch(e){
+    base = location.href.split('?')[0];
+  }
+  const src = base + '?game=' + encodeURIComponent(token);
+  window.open(src, '_blank');
+});
+
+clearBtn.addEventListener('click', ()=>{
+  pairsInput.value = '';
+  embedCodeEl.value = '';
+  clearBoard();
+  leftCountEl.textContent = '0';
+  scoreEl.textContent = '0';
+  messageEl.textContent = '';
+});
+
+/* On load: if ?game=... present, run game-only mode */
+function getQueryParam(name){
+  const params = new URLSearchParams(location.search);
+  return params.get(name);
+}
+
+function runEmbeddedGameFromParam(){
+  const gameToken = getQueryParam('game');
+  if(!gameToken) return false;
+  const obj = decodeGame(gameToken);
+  if(!obj || !Array.isArray(obj.pairs)) {
+    messageEl.textContent = 'Неверный формат игры.';
+    return true; // we handled (error)
+  }
+  // hide editor if embed param or when loaded with game
+  const embed = getQueryParam('embed') !== null;
+  if(embed){
+    const editorPanel = document.getElementById('editorPanel');
+    editorPanel.parentNode.removeChild(editorPanel);
+    document.querySelector('header')?.remove();
+    document.querySelector('footer')?.remove();
+    // make container full width
+    document.getElementById('appRoot').style.gridTemplateColumns = '1fr';
+    document.body.style.background = 'linear-gradient(180deg,#041023,#071127)';
+  }
+  pairsInput.value = obj.pairs.map(p=>p.left + ' | ' + p.right).join('\\n');
+  buildAndRender();
+  // if embed: try to make full height fit
+  if(embed){
+    // stretch stage to viewport
+    document.getElementById('stage').style.minHeight = '100vh';
+  }
+  return true;
+}
+
+window.addEventListener('load', ()=>{
+  const handled = runEmbeddedGameFromParam();
+  if(!handled){
+    // show a small demo content
+    if(!pairsInput.value) {
+      pairsInput.value = 'Apple | https://i.imgur.com/8Km9tLL.png\\nCat | https://i.imgur.com/5bY0X3j.png\\nBanana | banana';
+    }
+    buildAndRender();
+  }
+});
+
+/* fullscreen/open full button */
+fullscreenBtn.addEventListener('click', ()=>{
+  const raw = parsePairs(pairsInput.value);
+  if(raw.length===0){ alert('Нет пар.'); return; }
+  const token = encodeGame({pairs: raw});
+  let base;
+  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
+  const src = base + '?game=' + encodeURIComponent(token);
+  window.open(src, '_blank');
+});
+</script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
