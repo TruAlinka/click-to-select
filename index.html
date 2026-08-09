@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Matching Game Editor — Prototype</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1 id="title">Matching Game Editor</h1>
+      <div class="controls">
+        <label for="lang">Language:</label>
+        <select id="lang">
+          <option value="en">English</option>
+          <option value="ru">Русский</option>
+          <option value="de">Deutsch</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
+        </select>
+      </div>
+    </header>
+
+    <main>
+      <section class="editor">
+        <h2 data-i18n="editor_heading">Editor</h2>
+        <div class="row">
+          <div class="col">
+            <label data-i18n="pairs_label">Pairs (one per line, A - B)</label>
+            <textarea id="pairsInput" placeholder="apple - яблоко\nhttps://example.com/img1.gif - cat\nhello\tHola"></textarea>
+            <div class="hint" data-i18n="pairs_hint">Each line: A and B separated by a tab, ' - ', '|' or '↔'. A or B can be text or image URL.</div>
+          </div>
+        </div>
+
+        <div class="row settings">
+          <div>
+            <label data-i18n="background">Background:</label>
+            <select id="bgType">
+              <option value="palette">Palette</option>
+              <option value="transparent">Transparent</option>
+              <option value="blur">Blur</option>
+              <option value="glitch">Glitch</option>
+              <option value="mist">Mist</option>
+            </select>
+          </div>
+          <div id="paletteControls">
+            <label data-i18n="primary_color">Primary</label>
+            <input type="color" id="color1" value="#3498db">
+            <label data-i18n="secondary_color">Secondary</label>
+            <input type="color" id="color2" value="#9b59b6">
+          </div>
+          <div>
+            <label data-i18n="iframe_size">Iframe size</label>
+            <input id="iframeW" type="number" min="200" value="800"> x <input id="iframeH" type="number" min="200" value="600">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="previewBtn" class="primary" data-i18n="preview">Preview</button>
+          <button id="generateBtn" data-i18n="generate_iframe">Generate iframe</button>
+          <button id="startBtn" class="primary" data-i18n="start">Start</button>
+        </div>
+
+        <div class="output">
+          <label data-i18n="embed_code">Embed code</label>
+          <textarea id="embedCode" readonly></textarea>
+        </div>
+      </section>
+
+      <section class="preview">
+        <h2 data-i18n="preview_heading">Preview / Game</h2>
+        <div id="stage" class="stage">
+          <div id="bgLayer" class="bg-layer"></div>
+          <div id="gameArea" class="game-area"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <small>Prototype — host on GitHub Pages. No auth. Images: external URLs only.</small>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
