@@ -15,6 +15,7 @@
       --wrong-color:#ef4444;
     }
     *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+    html,body{height:100%}
     body{margin:0;padding:16px;background:linear-gradient(180deg,var(--bg),#071127);color:#e6eef6;min-height:100vh}
     header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     header h1{font-size:18px;margin:0}
@@ -326,7 +327,8 @@ const el = {
   score: document.getElementById('score'),
   message: document.getElementById('message'),
   embedLabel: document.getElementById('embedLabel'),
-  previewPanel: document.getElementById('previewPanel')
+  previewPanel: document.getElementById('previewPanel'),
+  appRoot: document.getElementById('appRoot')
 };
 
 let fbDirty = {correct:false,wrong:false,finished:false};
@@ -722,20 +724,57 @@ function runEmbeddedGameFromParam(){
     // hide editor and header/footer
     const editorPanel = document.getElementById('editorPanel'); if(editorPanel) editorPanel.remove();
     document.querySelector('header')?.remove(); document.querySelector('footer')?.remove();
-    document.getElementById('appRoot').style.gridTemplateColumns='1fr';
+    // make main area single column
+    if(el.appRoot) el.appRoot.style.gridTemplateColumns='1fr';
 
     // IMPORTANT: make outer areas transparent so host page shows through
-    // set body/html background transparent
+    // set body/html background transparent and remove page padding
     document.body.style.background = 'transparent';
     document.documentElement.style.background = 'transparent';
-    // make the preview panel (the container around game) transparent and remove heavy shadow
+    document.body.style.padding = '0';
+    document.body.style.margin = '0';
+
+    // make the preview panel (контейнер игрового поля) stretch and be transparent and remove heavy shadow/radius
     const previewPanel = el.previewPanel;
     if(previewPanel){
       previewPanel.style.background = 'transparent';
       previewPanel.style.boxShadow = 'none';
+      previewPanel.style.padding = '0';
+      previewPanel.style.borderRadius = '0';
+      previewPanel.style.width = '100%';
+      previewPanel.style.maxWidth = '100%';
+      previewPanel.style.overflow = 'visible';
+      previewPanel.style.minHeight = '100vh';
+      previewPanel.style.height = '100vh';
+      previewPanel.style.boxSizing = 'border-box';
     }
+
+    // stage: make it full-height, remove rounding and allow overflow so cards aren't cut
+    const stage = el.stage;
+    if(stage){
+      stage.style.minHeight = '100vh';
+      stage.style.height = '100vh';
+      stage.style.borderRadius = '0';
+      stage.style.overflow = 'visible';
+      stage.style.boxSizing = 'border-box';
+    }
+
+    // stageContent: keep internal padding for comfortable layout, but ensure it can scroll
+    const sc = el.stageContent;
+    if(sc){
+      sc.style.padding = '24px';
+      sc.style.overflow = 'auto';
+      sc.style.boxSizing = 'border-box';
+      // ensure full height for correct calculations
+      sc.style.minHeight = '100vh';
+      sc.style.height = '100vh';
+    }
+
     // remove Open full button in embed
     const fb = document.getElementById('fullscreenBtn'); if(fb) fb.remove();
+
+    // small delay: recalc layout after style changes (scatter items use getBoundingClientRect)
+    setTimeout(()=>{ try{ renderBoard(); window.scrollTo(0,0); }catch(e){} }, 60);
   }
 
   el.pairsInput.value = obj.pairs.map(p=>p.left + ' | ' + p.right).join('\n');
