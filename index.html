@@ -319,13 +319,14 @@ const el = {
   stage: document.getElementById('stage'),
   stageBg: document.getElementById('stageBg'),
   stageContent: document.getElementById('stageContent'),
-  gameArea: document.getElementById('gameArea'), // <-- добавлено
+  gameArea: document.getElementById('gameArea'),
   colLeft: document.getElementById('colLeft'),
   colRight: document.getElementById('colRight'),
   leftCount: document.getElementById('leftCount'),
   score: document.getElementById('score'),
   message: document.getElementById('message'),
-  embedLabel: document.getElementById('embedLabel')
+  embedLabel: document.getElementById('embedLabel'),
+  previewPanel: document.getElementById('previewPanel')
 };
 
 let fbDirty = {correct:false,wrong:false,finished:false};
@@ -560,7 +561,7 @@ el.previewBtn.addEventListener('click', ()=>{
 });
 el.clearBtn.addEventListener('click', ()=>{ el.pairsInput.value=''; el.embedCode.value=''; clearBoard(); el.leftCount.textContent='0'; el.score.textContent='0'; el.message.textContent=''; });
 
-/* Generate iframe: include full settings */
+/* Generate iframe: include full settings (iframe background transparent) */
 el.generateBtn.addEventListener('click', ()=>{
   const raw = parsePairs(el.pairsInput.value);
   if(!raw.length){ alert(t('noPairs')); return; }
@@ -576,7 +577,8 @@ el.generateBtn.addEventListener('click', ()=>{
   let base;
   try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
   const src = base + '?game=' + encodeURIComponent(token) + '&embed=1';
-  el.embedCode.value = `<iframe src="${src}" style="width:100%;height:600px;border:0;" allowfullscreen></iframe>`;
+  // <-- set iframe background transparent and include allowTransparency
+  el.embedCode.value = `<iframe src="${src}" style="width:100%;height:600px;border:0;background:transparent;" allowfullscreen allowTransparency="true"></iframe>`;
   buildAndRender();
   el.message.textContent = t('addedMsg');
 });
@@ -717,11 +719,22 @@ function runEmbeddedGameFromParam(){
   el.bgType.dispatchEvent(new Event('change'));
 
   if(embed){
-    // hide editor and header/footer and remove fullscreen button (no navigation from embed)
+    // hide editor and header/footer
     const editorPanel = document.getElementById('editorPanel'); if(editorPanel) editorPanel.remove();
     document.querySelector('header')?.remove(); document.querySelector('footer')?.remove();
     document.getElementById('appRoot').style.gridTemplateColumns='1fr';
-    document.body.style.background='linear-gradient(180deg,#041023,#071127)';
+
+    // IMPORTANT: make outer areas transparent so host page shows through
+    // set body/html background transparent
+    document.body.style.background = 'transparent';
+    document.documentElement.style.background = 'transparent';
+    // make the preview panel (the container around game) transparent and remove heavy shadow
+    const previewPanel = el.previewPanel;
+    if(previewPanel){
+      previewPanel.style.background = 'transparent';
+      previewPanel.style.boxShadow = 'none';
+    }
+    // remove Open full button in embed
     const fb = document.getElementById('fullscreenBtn'); if(fb) fb.remove();
   }
 
