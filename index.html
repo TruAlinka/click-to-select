@@ -6,77 +6,69 @@
   <title>Matching Game — Редактор и Игра</title>
   <style>
     :root{
-      --bg:#0f1724;
-      --card:#0b1220;
-      --accent:#2dd4bf;
+      --bg:#041023;
+      --panel:#0b1220;
       --muted:#9aa4b2;
-      --glass: rgba(255,255,255,0.04);
-      --radius:12px;
-      --gap:12px;
-      --correct-color: #16a34a;
-      --wrong-color: #ef4444;
+      --card-bg:#0b1220;
+      --card-radius:10px;
+      --correct-color:#16a34a;
+      --wrong-color:#ef4444;
     }
-    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
-    body{margin:0;padding:16px;background:linear-gradient(180deg,#071127 0%, #081428 100%);color:#e6eef6;min-height:100vh}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+    body{margin:0;padding:16px;background:linear-gradient(180deg,var(--bg),#071127);color:#e6eef6;min-height:100vh}
     header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
     header h1{font-size:18px;margin:0}
     .container{display:grid;grid-template-columns:1fr 520px;gap:16px;align-items:start}
-    .panel{background:var(--card);padding:14px;border-radius:var(--radius);box-shadow:0 6px 18px rgba(2,6,23,0.6)}
-    .editor .hint{color:var(--muted);font-size:13px;margin-bottom:8px}
+    .panel{background:var(--panel);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    .hint{color:var(--muted);font-size:13px;margin-bottom:8px}
     textarea, input, select, button{font:inherit}
     textarea{width:100%;min-height:220px;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);color:inherit;resize:vertical}
     .row{display:flex;gap:12px;margin-bottom:12px}
-    .row > div{flex:1}
     label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
     .actions{display:flex;gap:8px;flex-wrap:wrap}
-    button{background:transparent;color:var(--accent);border:1px solid rgba(255,255,255,0.05);padding:8px 12px;border-radius:8px;cursor:pointer}
-    button.primary{background:var(--accent);color:#042022;border:0}
-    .output textarea{min-height:80px}
+    button{background:transparent;color:#2dd4bf;border:1px solid rgba(255,255,255,0.05);padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.primary{background:#2dd4bf;color:#042022;border:0}
     .preview-panel{display:flex;flex-direction:column;gap:8px;height:100%}
-    .stage{flex:1;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;align-items:stretch;overflow:auto;position:relative}
-    .stage.glitch{overflow:hidden}
+    /* stage: bg layer + content layer */
+    .stage{flex:1;border-radius:12px;padding:0;display:flex;flex-direction:column;gap:0;align-items:stretch;overflow:hidden;position:relative}
+    .stage-bg{position:absolute;inset:0;border-radius:12px;z-index:0;pointer-events:none;transition:all .32s ease;overflow:hidden}
+    .stage-bg .glitch-layer{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:.08; background-size:cover; background-repeat:no-repeat}
+    .stage-bg.effect-blur{ /* filter is set via inline style or JS based on intensity */ }
+    .stage-bg.blur-anim{animation:blurPulse var(--blur-anim-duration,4s) ease-in-out infinite;}
+    @keyframes blurPulse{
+      0%{filter:blur(0px)}
+      50%{filter:blur(var(--blur-max,6px))}
+      100%{filter:blur(0px)}
+    }
+    .stage-content{position:relative;z-index:1;padding:14px;display:flex;flex-direction:column;gap:12px;align-items:stretch;overflow:auto;min-height:300px}
     .game-header{display:flex;justify-content:space-between;align-items:center;gap:8px}
     .game-area{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
     .column{display:flex;flex-direction:column;gap:10px;min-height:120px}
-    .card{background:var(--glass);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .18s ease}
+    .card{
+      background:var(--card-bg);
+      padding:10px;border-radius:var(--card-radius);
+      border:1px solid rgba(255,255,255,0.03);cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .18s ease;
+      color:#e8f9f5; box-shadow:0 4px 10px rgba(2,6,23,0.45); word-break:break-word;
+    }
     .card.disabled{opacity:0.35;cursor:default}
     .card img{max-width:120px;max-height:90px;object-fit:contain;border-radius:6px}
-    .card .text{font-size:15px;color:#e8f9f5;word-break:break-word}
+    .text{font-size:15px}
     .selected{outline:3px solid rgba(45,212,191,0.18);box-shadow:0 6px 20px rgba(45,212,191,0.06)}
-    .correct{
-      background:linear-gradient(90deg,var(--correct-color),rgba(0,0,0,0.05));
-      border-color: rgba(0,0,0,0.08);
-      color:#042022;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
-    }
-    .wrong{ animation:shake 300ms ease; box-shadow: 0 0 0 4px rgba(255,255,255,0.02); }
+    .correct{ background:linear-gradient(90deg,var(--correct-color),rgba(0,0,0,0.05)); border-color: rgba(0,0,0,0.08); color:#042022; box-shadow:0 8px 26px rgba(0,0,0,0.18) }
+    .wrong{ animation:shake 300ms ease; }
     @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
     .small{font-size:13px;color:var(--muted)}
     .controls-inline{display:flex;gap:8px;align-items:center}
     .stats{display:flex;gap:12px;align-items:center}
-    .flex-vertical{display:flex;flex-direction:column}
-    .hidden{display:none}
     footer{margin-top:12px;color:var(--muted);font-size:13px}
-    @media (max-width:900px){
-      .container{grid-template-columns:1fr; padding-bottom:40px}
-      .game-area{grid-template-columns:1fr;align-items:stretch}
-    }
-    .card img{width:100%;height:auto}
-    /* scatter random */
+    @media (max-width:900px){ .container{grid-template-columns:1fr; padding-bottom:40px} .game-area{grid-template-columns:1fr;align-items:stretch} }
+    /* scatter */
     .scatter-item{position:absolute;z-index:2;min-width:140px;max-width:220px}
-    /* blur effect */
-    .stage.effect-blur{filter:blur(6px)}
-    .stage.effect-glitch::before,
-    .stage.effect-glitch::after{
-      content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:0.06;
-      background:linear-gradient(90deg, rgba(255,0,150,0.2), rgba(0,200,255,0.2), rgba(0,255,150,0.2));
-      transform:translateX(0);
-      animation:glitchMove 3s infinite linear;
-    }
-    .stage.effect-glitch::after{animation-duration:2.1s;opacity:0.04}
-    @keyframes glitchMove{0%{transform:translateX(-10%)}50%{transform:translateX(10%)}100%{transform:translateX(-10%)}}
-    /* highlight wrong with user color (flash using CSS var) */
-    .flash-wrong{ box-shadow: 0 0 0 6px var(--wrong-color); }
+    /* flash wrong */
+    .flash-wrong{ box-shadow:0 0 0 6px var(--wrong-color); }
+    /* glitch keyframes simple */
+    @keyframes glitchShiftA{ 0%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)} }
+    @keyframes glitchShiftB{ 0%{transform:translateY(0)}20%{transform:translateY(-6px)}40%{transform:translateY(6px)}60%{transform:translateY(-4px)}100%{transform:translateY(0)} }
   </style>
 </head>
 <body>
@@ -89,7 +81,7 @@
     <section class="panel editor" id="editorPanel">
       <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
         <div style="flex:1">
-          <div class="hint" id="hintText">Формат: одна пара на строку. Разделители: | , => , таб, " - " (пробел-минус-пробел).</div>
+          <div class="hint" id="hintText">Формат: одна пара на строку. Разделители: | , => , таб, " - ".</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <label class="small" for="langSelect">Language</label>
@@ -102,8 +94,7 @@
 
       <label id="pairsLabel">Пары (левое и правое через разделитель)</label>
       <textarea id="pairsInput" placeholder="apple | https://example.com/apple.gif
-кошка | https://example.com/cat.png
-banana | банан"></textarea>
+banana | https://example.com/banana.jpg"></textarea>
 
       <div class="row">
         <div>
@@ -125,34 +116,82 @@ banana | банан"></textarea>
         </div>
       </div>
 
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
-        <label class="small">Background</label>
-        <input id="bgColor" type="color" value="#071427" title="Background color">
-        <label style="display:flex;align-items:center;gap:6px" class="small"><input id="bgTransparent" type="checkbox"> Transparent</label>
-        <label class="small">Effect</label>
-        <select id="bgEffect"><option value="none">none</option><option value="blur">blur</option><option value="glitch">glitch</option></select>
+      <!-- Background controls: gradient colors + direction, blur intensity + animate, glitch intensity -->
+      <div style="margin:10px 0;padding:10px;border-radius:8px;background:rgba(255,255,255,0.01);">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+          <label class="small">Background type</label>
+          <select id="bgType">
+            <option value="solid">Solid</option>
+            <option value="gradient">Gradient (multi)</option>
+            <option value="image">Image (url)</option>
+          </select>
+
+          <label class="small" style="margin-left:8px">Solid color</label>
+          <input id="bgSolid" type="color" value="#071427">
+
+          <div id="gradientControls" style="display:none;width:100%;margin-top:8px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <label class="small">Color 1</label><input id="g1" type="color" value="#071427">
+              <label class="small">Color 2</label><input id="g2" type="color" value="#0b2540">
+              <label class="small">Color 3 (opt)</label><input id="g3" type="color" value="#052035">
+              <label class="small">Direction</label>
+              <select id="gDir"><option value="to right">to right</option><option value="to bottom">to bottom</option><option value="45deg">45deg</option><option value="135deg">135deg</option></select>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+            <label class="small">Image URL</label><input id="bgImageUrl" placeholder="https://..." style="flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)">
+          </div>
+        </div>
+
+        <hr style="opacity:.06;margin:8px 0">
+
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;align-items:center">
+            <label class="small">Blur (px)</label>
+            <input id="blurRange" type="range" min="0" max="30" value="6">
+            <span class="small" id="blurVal">6</span>
+            <label style="margin-left:12px" class="small"><input id="blurAnim" type="checkbox"> Animated blur</label>
+            <label style="margin-left:8px" class="small">Anim duration (s)</label>
+            <input id="blurAnimDur" type="number" min="1" value="4" style="width:64px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)">
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
+            <label class="small">Glitch</label>
+            <select id="glitchMode">
+              <option value="none">none</option>
+              <option value="soft">soft</option>
+              <option value="strong">strong</option>
+            </select>
+            <label class="small">Glitch intensity</label>
+            <input id="glitchIntensity" type="range" min="1" max="10" value="4" style="width:140px">
+          </div>
+        </div>
       </div>
 
+      <!-- Card + colors + feedback -->
       <div style="margin:10px 0;padding:10px;border-radius:8px;background:rgba(255,255,255,0.01);">
         <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-          <label class="small" style="width:140px">Correct color</label>
+          <label class="small" style="width:120px">Card color</label>
+          <input id="cardColor" type="color" value="#0b1220">
+          <label class="small" style="width:120px;margin-left:8px">Correct color</label>
           <input id="correctColor" type="color" value="#16a34a">
-          <label class="small" style="width:120px;margin-left:auto">Wrong color</label>
+          <label class="small" style="width:100px;margin-left:8px">Wrong color</label>
           <input id="wrongColor" type="color" value="#ef4444">
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <label class="small" style="width:140px">Feedback correct</label>
+          <label class="small" style="width:120px">Feedback correct</label>
           <input id="fbCorrect" type="text" style="flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)" placeholder="Correct!">
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-          <label class="small" style="width:140px">Feedback wrong</label>
+          <label class="small" style="width:120px">Feedback wrong</label>
           <input id="fbWrong" type="text" style="flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)" placeholder="Wrong...">
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
-          <label class="small" style="width:140px">Feedback finished</label>
+          <label class="small" style="width:120px">Feedback finished</label>
           <input id="fbFinished" type="text" style="flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)" placeholder="All matched!">
         </div>
-        <div class="small" style="margin-top:8px;color:var(--muted)">Если вы вручную редактируете сообщения — автоматическая замена при смене языка отключится для изменённого поля.</div>
+        <div class="small" style="margin-top:8px;color:var(--muted)">Ручная правка feedback отключает автопереключение текста при смене языка для данного поля.</div>
       </div>
 
       <div class="actions">
@@ -184,12 +223,15 @@ banana | банан"></textarea>
         </div>
       </div>
 
-      <div id="stage" class="stage" style="min-height:300px">
-        <div id="gameArea" class="game-area">
-          <div class="column" id="colLeft"></div>
-          <div class="column" id="colRight"></div>
+      <div id="stage" class="stage">
+        <div id="stageBg" class="stage-bg"></div>
+        <div id="stageContent" class="stage-content">
+          <div id="gameArea" class="game-area">
+            <div class="column" id="colLeft"></div>
+            <div class="column" id="colRight"></div>
+          </div>
+          <div id="message" class="small" style="margin-top:6px"></div>
         </div>
-        <div id="message" class="small" style="margin-top:6px"></div>
       </div>
     </section>
   </main>
@@ -197,213 +239,249 @@ banana | банан"></textarea>
   <footer id="footerText">Prototype — вставляйте iframe в платформы (Genially и т.п.).</footer>
 
 <script>
-/* ---- i18n ---- */
+/* ========== I18N ========== */
 const LOCALES = {
-  ru: {
-    title: 'Matching Game — Редактор',
-    subtitle: 'Вставляйте пары A | B — текст или ссылка на изображение (gif/png/jpg).',
-    hint: 'Формат: одна пара на строку. Разделители: | , => , таб, " - " (пробел-минус-пробел).',
-    pairsLabel: 'Пары (левое и правое через разделитель)',
-    settings: 'Настройки',
-    layout: 'Layout',
-    previewHeight: 'Размер превью высота (px)',
-    embed: 'Embed code',
-    previewTitle: 'Preview / Game',
-    previewHint: 'Кликайте по карточкам — сопоставляйте пары.',
-    noPairs: 'Нет пар для отображения.',
-    addedMsg: 'Iframe сгенерирован. Скопируйте код.',
-    invalidGame: 'Неверный формат игры.',
-    correct: 'Правильно!',
-    wrong: 'Неправильно...',
-    finished: 'Поздравляем! Все пары сопоставлены.'
-  },
-  en: {
-    title: 'Matching Game — Editor',
-    subtitle: 'Paste pairs A | B — text or image URL (gif/png/jpg).',
-    hint: 'Format: one pair per line. Separators: | , => , tab, " - " (space-dash-space).',
-    pairsLabel: 'Pairs (left and right separated)',
-    settings: 'Settings',
-    layout: 'Layout',
-    previewHeight: 'Preview height (px)',
-    embed: 'Embed code',
-    previewTitle: 'Preview / Game',
-    previewHint: 'Click cards to match pairs.',
-    noPairs: 'No pairs to display.',
-    addedMsg: 'Iframe generated. Copy the code.',
-    invalidGame: 'Invalid game format.',
-    correct: 'Correct!',
-    wrong: 'Wrong...',
-    finished: 'Congrats! All matched.'
-  }
+  ru: { title:'Matching Game — Редактор', subtitle:'Вставляйте пары A | B — текст или ссылка на изображение (gif/png/jpg).', hint:'Формат: одна пара на строку. Разделители: | , => , таб, " - ".', pairsLabel:'Пары (левое и правое через разделитель)', settings:'Настройки', layout:'Layout', previewHeight:'Размер превью высота (px)', embed:'Embed code', previewTitle:'Preview / Game', previewHint:'Кликайте по карточкам — сопоставляйте пары.', noPairs:'Нет пар для отображения.', addedMsg:'Iframe сгенерирован. Скопируйте код.', invalidGame:'Неверный формат игры.', correct:'Правильно!', wrong:'Неправильно...', finished:'Поздравляем! Все пары сопоставлены.' },
+  en: { title:'Matching Game — Editor', subtitle:'Paste pairs A | B — text or image URL (gif/png/jpg).', hint:'Format: one pair per line. Separators: | , => , tab, " - ".', pairsLabel:'Pairs (left and right separated)', settings:'Settings', layout:'Layout', previewHeight:'Preview height (px)', embed:'Embed code', previewTitle:'Preview / Game', previewHint:'Click cards to match pairs.', noPairs:'No pairs to display.', addedMsg:'Iframe generated. Copy the code.', invalidGame:'Invalid game format.', correct:'Correct!', wrong:'Wrong...', finished:'Congrats! All matched.' }
 };
-function t(key){ return LOCALES[currentLang][key] || key; }
-let currentLang = 'ru';
+let currentLang='ru';
+function t(k){ return (LOCALES[currentLang] && LOCALES[currentLang][k]) || k; }
 
-/* ---- base64 helpers ---- */
-function encodeGame(obj){ const s = JSON.stringify(obj); return btoa(unescape(encodeURIComponent(s))); }
-function decodeGame(b){ try{ return JSON.parse(decodeURIComponent(escape(atob(b)))); }catch(e){ return null; } }
+/* ========== Helpers ========== */
+function encodeGame(obj){ const s=JSON.stringify(obj); return btoa(unescape(encodeURIComponent(s))); }
+function decodeGame(b){ try{ return JSON.parse(decodeURIComponent(escape(atob(b)))); }catch(e){return null;} }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
-/* ---- parser (бережный к URL) ---- */
+/* ========== Parser ========== */
 function parsePairs(text){
   const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  const pairs = [];
+  const pairs=[];
   for(const line of lines){
-    let left = '', right = '';
-    const candidates = [];
-    const idxPipe = line.indexOf('|'); if(idxPipe !== -1) candidates.push({i: idxPipe, sep: '|' });
-    const idxArrow = line.indexOf('=>'); if(idxArrow !== -1) candidates.push({i: idxArrow, sep: '=>'});
-    const idxTab = line.indexOf('\t'); if(idxTab !== -1) candidates.push({i: idxTab, sep: '\t'});
-    const idxDashSp = line.indexOf(' - '); if(idxDashSp !== -1) candidates.push({i: idxDashSp, sep: ' - '});
-    const idxColonSp = line.indexOf(' : '); if(idxColonSp !== -1) candidates.push({i: idxColonSp, sep: ' : '});
-    const idxCommaSp = line.indexOf(', '); if(idxCommaSp !== -1) candidates.push({i: idxCommaSp, sep: ', '});
-    if(candidates.length > 0){
-      candidates.sort((a,b)=>a.i-b.i);
-      const ch = candidates[0];
-      left = line.slice(0, ch.i).trim();
-      right = line.slice(ch.i + ch.sep.length).trim();
+    let left='', right='';
+    const candidates=[];
+    const idxPipe=line.indexOf('|'); if(idxPipe!==-1) candidates.push({i:idxPipe,sep:'|'});
+    const idxArrow=line.indexOf('=>'); if(idxArrow!==-1) candidates.push({i:idxArrow,sep:'=>'});
+    const idxTab=line.indexOf('\t'); if(idxTab!==-1) candidates.push({i:idxTab,sep:'\t'});
+    const idxDashSp=line.indexOf(' - '); if(idxDashSp!==-1) candidates.push({i:idxDashSp,sep:' - '});
+    const idxColonSp=line.indexOf(' : '); if(idxColonSp!==-1) candidates.push({i:idxColonSp,sep:' : '});
+    const idxCommaSp=line.indexOf(', '); if(idxCommaSp!==-1) candidates.push({i:idxCommaSp,sep:', '});
+    if(candidates.length>0){
+      candidates.sort((a,b)=>a.i-b.i); const ch=candidates[0];
+      left=line.slice(0,ch.i).trim(); right=line.slice(ch.i+ch.sep.length).trim();
     } else {
-      const parts = line.split(/\s+/);
-      if(parts.length >= 2){
-        left = parts[0];
-        right = parts.slice(1).join(' ');
-      } else continue;
+      const parts=line.split(/\s+/);
+      if(parts.length>=2){ left=parts[0]; right=parts.slice(1).join(' '); } else continue;
     }
-    if(!left || !right) continue;
-    pairs.push({left, right});
+    if(!left||!right) continue;
+    pairs.push({left,right});
   }
   return pairs;
 }
 function isImageUrl(s){
   if(!s) return false;
-  try { const u = new URL(s, location.href); const path = u.pathname.toLowerCase(); return /\.(gif|png|jpe?g|svg|webp)$/.test(path) || s.startsWith('data:image'); } catch(e){ return false; }
+  try{ const u=new URL(s,location.href); const p=u.pathname.toLowerCase(); return /\.(gif|png|jpe?g|svg|webp)$/.test(p) || s.startsWith('data:image'); }catch(e){return false;}
 }
 
-/* ---- shuffle ---- */
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+/* ========== STATE & ELEMENTS ========== */
+let state={pairs:[],leftItems:[],rightItems:[],mapping:{},selected:null,score:0};
+const el = {
+  pairsInput: document.getElementById('pairsInput'),
+  previewBtn: document.getElementById('previewBtn'),
+  generateBtn: document.getElementById('generateBtn'),
+  startBtn: document.getElementById('startBtn'),
+  clearBtn: document.getElementById('clearBtn'),
+  embedCode: document.getElementById('embedCode'),
+  previewH: document.getElementById('previewH'),
+  resetBtn: document.getElementById('resetBtn'),
+  fullscreenBtn: document.getElementById('fullscreenBtn'),
+  langSelect: document.getElementById('langSelect'),
+  bgType: document.getElementById('bgType'),
+  bgSolid: document.getElementById('bgSolid'),
+  gradientControls: document.getElementById('gradientControls'),
+  g1: document.getElementById('g1'),
+  g2: document.getElementById('g2'),
+  g3: document.getElementById('g3'),
+  gDir: document.getElementById('gDir'),
+  bgImageUrl: document.getElementById('bgImageUrl'),
+  blurRange: document.getElementById('blurRange'),
+  blurVal: document.getElementById('blurVal'),
+  blurAnim: document.getElementById('blurAnim'),
+  blurAnimDur: document.getElementById('blurAnimDur'),
+  glitchMode: document.getElementById('glitchMode'),
+  glitchIntensity: document.getElementById('glitchIntensity'),
+  cardColor: document.getElementById('cardColor'),
+  correctColor: document.getElementById('correctColor'),
+  wrongColor: document.getElementById('wrongColor'),
+  fbCorrect: document.getElementById('fbCorrect'),
+  fbWrong: document.getElementById('fbWrong'),
+  fbFinished: document.getElementById('fbFinished'),
+  layoutSelect: document.getElementById('layoutSelect'),
+  stage: document.getElementById('stage'),
+  stageBg: document.getElementById('stageBg'),
+  stageContent: document.getElementById('stageContent'),
+  colLeft: document.getElementById('colLeft'),
+  colRight: document.getElementById('colRight'),
+  leftCount: document.getElementById('leftCount'),
+  score: document.getElementById('score'),
+  message: document.getElementById('message'),
+  embedLabel: document.getElementById('embedLabel')
+};
 
-/* ---- state ---- */
-let state = { pairs: [], leftItems: [], rightItems: [], mapping: {}, selected: null, score: 0 };
-const colLeft = document.getElementById('colLeft');
-const colRight = document.getElementById('colRight');
-const leftCountEl = document.getElementById('leftCount');
-const scoreEl = document.getElementById('score');
-const messageEl = document.getElementById('message');
-const stage = document.getElementById('stage');
-const gameArea = document.getElementById('gameArea');
+let fbDirty = {correct:false,wrong:false,finished:false};
 
-/* feedback fields and dirty flags */
-const fbCorrectInput = document.getElementById('fbCorrect');
-const fbWrongInput = document.getElementById('fbWrong');
-const fbFinishedInput = document.getElementById('fbFinished');
-let fbCorrectDirty = false, fbWrongDirty = false, fbFinishedDirty = false;
-
-/* color inputs */
-const correctColorInput = document.getElementById('correctColor');
-const wrongColorInput = document.getElementById('wrongColor');
-
-/* build state */
+/* ========== BUILD STATE ========== */
 function buildStateFromPairs(pairsRaw){
   const pairs = pairsRaw.map((p,i)=>({
-    id: 'p'+i,
-    left: p.left,
-    right: p.right,
-    leftIsImage: isImageUrl(p.left),
-    rightIsImage: isImageUrl(p.right)
+    id:'p'+i,
+    left:p.left,
+    right:p.right,
+    leftIsImage:isImageUrl(p.left),
+    rightIsImage:isImageUrl(p.right)
   }));
   state.pairs = pairs;
-  state.leftItems = shuffle(pairs.map(p=>({id:p.id, text:p.left, isImage:p.leftIsImage})));
-  state.rightItems = shuffle(pairs.map(p=>({id:p.id, text:p.right, isImage:p.rightIsImage})));
-  state.mapping = {}; pairs.forEach(p=> state.mapping[p.id] = p.id);
-  state.selected = null; state.score = 0;
+  state.leftItems = shuffle(pairs.map(p=>({id:p.id,text:p.left,isImage:p.leftIsImage})));
+  state.rightItems = shuffle(pairs.map(p=>({id:p.id,text:p.right,isImage:p.rightIsImage})));
+  state.mapping = {}; pairs.forEach(p=> state.mapping[p.id]=p.id);
+  state.selected=null; state.score=0;
 }
 
-/* clear */
-function clearBoard(){ colLeft.innerHTML=''; colRight.innerHTML=''; messageEl.textContent=''; }
-
-/* make card */
+/* ========== RENDER ========== */
 function makeCard(item, side){
   const card = document.createElement('div');
-  card.className = 'card';
-  card.dataset.side = side;
-  card.dataset.id = item.id;
+  card.className='card';
+  card.dataset.side=side; card.dataset.id=item.id;
+  card.style.background = getComputedStyle(document.documentElement).getPropertyValue('--card-bg') || el.cardColor.value;
   if(item.isImage){
-    const img = document.createElement('img');
-    img.src = item.text;
-    img.alt = '';
-    img.onerror = ()=>{ img.style.opacity = 0.6; };
-    card.appendChild(img);
+    const img = document.createElement('img'); img.src=item.text; img.alt=''; img.onerror=()=>img.style.opacity=0.6; card.appendChild(img);
   } else {
-    const txt = document.createElement('div');
-    txt.className = 'text';
-    txt.textContent = item.text;
-    card.appendChild(txt);
+    const txt = document.createElement('div'); txt.className='text'; txt.textContent=item.text; card.appendChild(txt);
   }
   card.addEventListener('click', onCardClick);
   return card;
 }
 
-/* render board (layouts: horizontal/vertical/random) */
+function clearBoard(){ el.colLeft.innerHTML=''; el.colRight.innerHTML=''; el.message.textContent=''; }
+
+function applyBgSettingsToStageBg(settings){
+  // settings: { type: 'solid'|'gradient'|'image', solid, gradient:{g1,g2,g3,dir}, imageUrl, blur, blurAnim, blurAnimDur, glitchMode, glitchIntensity }
+  const bg = el.stageBg;
+  bg.innerHTML=''; // wipe existing layers
+  bg.style.background='none';
+  bg.style.filter='';
+  bg.classList.remove('blur-anim');
+  // solid
+  if(settings.type==='solid'){
+    bg.style.background = settings.solid || el.bgSolid.value || '#071427';
+  } else if(settings.type==='gradient'){
+    const colors = [settings.gradient.g1, settings.gradient.g2];
+    if(settings.gradient.g3) colors.push(settings.gradient.g3);
+    const dir = settings.gradient.dir || 'to right';
+    bg.style.background = `linear-gradient(${dir}, ${colors.join(',')})`;
+  } else if(settings.type==='image'){
+    const url = settings.imageUrl || '';
+    if(url) bg.style.background = `url("${url}") center/cover no-repeat`;
+    else bg.style.background = el.bgSolid.value;
+  }
+
+  // blur
+  const blurPx = (typeof settings.blur === 'number')? settings.blur : parseInt(el.blurRange.value,10) || 0;
+  if(blurPx>0){
+    bg.style.filter = `blur(${blurPx}px)`;
+    if(settings.blurAnim){
+      bg.style.setProperty('--blur-max', blurPx+'px');
+      bg.style.setProperty('--blur-anim-duration', (settings.blurAnimDur||4)+'s');
+      bg.classList.add('blur-anim');
+      // blur animation uses keyframes defined in CSS
+    }
+  } else {
+    bg.style.filter = 'none';
+  }
+
+  // glitch: create overlay layers depending on mode & intensity
+  const glitchMode = settings.glitchMode || 'none';
+  const intensity = parseInt(settings.glitchIntensity || 4,10) || 4;
+  if(glitchMode !== 'none'){
+    const layers = (glitchMode === 'soft') ? Math.min(2, Math.max(1, Math.round(intensity/4))) : Math.min(6, Math.max(2, Math.round(intensity/2)));
+    for(let i=0;i<layers;i++){
+      const layer = document.createElement('div');
+      layer.className='glitch-layer';
+      layer.style.background = 'inherit';
+      // different blend/opacity/transform & animation speed
+      const op = (glitchMode==='soft') ? 0.06 : 0.08 + i*0.02;
+      layer.style.opacity = op;
+      const dx = (Math.random()*20 - 10).toFixed(2);
+      const dy = (Math.random()*10 - 5).toFixed(2);
+      const dur = (1.2 + Math.random()*2).toFixed(2);
+      layer.style.transform = `translate(${dx}px, ${dy}px)`;
+      // small clip to create glitch stripes
+      if(Math.random() > 0.5){
+        const h = 10 + Math.floor(Math.random()*80);
+        const top = Math.floor(Math.random()*(bg.clientHeight || 200));
+        layer.style.clipPath = `inset(${top}px 0px ${Math.max(0, (bg.clientHeight||200)-top-h)}px 0px)`;
+      }
+      layer.style.animation = Math.random()>0.5 ? `glitchShiftA ${dur}s linear infinite` : `glitchShiftB ${dur}s linear infinite`;
+      bg.appendChild(layer);
+    }
+  }
+}
+
 function renderBoard(){
   clearBoard();
-  leftCountEl.textContent = state.leftItems.length;
-  scoreEl.textContent = state.score;
+  el.leftCount.textContent = state.leftItems.length;
+  el.score.textContent = state.score;
 
-  // set colors from inputs (applies to CSS variables)
-  const cCol = correctColorInput.value || getComputedStyle(document.documentElement).getPropertyValue('--correct-color') || '#16a34a';
-  const wCol = wrongColorInput.value || getComputedStyle(document.documentElement).getPropertyValue('--wrong-color') || '#ef4444';
-  stage.style.setProperty('--correct-color', cCol);
-  stage.style.setProperty('--wrong-color', wCol);
+  // colors & card color
+  document.documentElement.style.setProperty('--card-bg', el.cardColor.value);
+  document.documentElement.style.setProperty('--correct-color', el.correctColor.value);
+  document.documentElement.style.setProperty('--wrong-color', el.wrongColor.value);
 
-  const layout = document.getElementById('layoutSelect').value;
-  stage.classList.remove('effect-blur','effect-glitch');
+  // background settings object from UI
+  const bgSettings = readBgSettingsFromUI();
+  applyBgSettingsToStageBg(bgSettings);
 
-  // apply background options if any
-  applyBackgroundOptions();
+  // remove previous scattered items inside stageContent
+  el.stageContent.querySelectorAll('.scatter-item').forEach(n=>n.remove());
 
-  // remove previous scatter items
-  stage.querySelectorAll('.scatter-item').forEach(n=>n.remove());
-
-  if(layout === 'horizontal'){
-    gameArea.style.display = 'grid';
-    gameArea.style.gridTemplateColumns = '1fr 1fr';
-    colLeft.innerHTML = ''; colRight.innerHTML = '';
-    state.leftItems.forEach(item=> colLeft.appendChild(makeCard(item, 'left')));
-    state.rightItems.forEach(item=> colRight.appendChild(makeCard(item, 'right')));
-  } else if(layout === 'vertical'){
-    gameArea.style.display = 'grid';
-    gameArea.style.gridTemplateColumns = '1fr';
-    colLeft.innerHTML = ''; colRight.innerHTML = '';
-    // left above right
-    state.leftItems.forEach(item=> colLeft.appendChild(makeCard(item,'left')));
-    state.rightItems.forEach(item=> colRight.appendChild(makeCard(item,'right')));
-  } else if(layout === 'random'){
-    gameArea.style.display = 'block';
-    colLeft.innerHTML=''; colRight.innerHTML='';
-    stage.style.position = 'relative';
-    const all = shuffle([ ...state.leftItems.map(i=>({...i, side:'left'})), ...state.rightItems.map(i=>({...i, side:'right'})) ]);
+  const layout = el.layoutSelect.value;
+  if(layout==='horizontal'){
+    el.gameArea.style.display='grid';
+    el.gameArea.style.gridTemplateColumns='1fr 1fr';
+    el.colLeft.innerHTML=''; el.colRight.innerHTML='';
+    state.leftItems.forEach(item=> el.colLeft.appendChild(makeCard(item,'left')));
+    state.rightItems.forEach(item=> el.colRight.appendChild(makeCard(item,'right')));
+  } else if(layout==='vertical'){
+    el.gameArea.style.display='grid';
+    el.gameArea.style.gridTemplateColumns='1fr';
+    el.colLeft.innerHTML=''; el.colRight.innerHTML='';
+    state.leftItems.forEach(item=> el.colLeft.appendChild(makeCard(item,'left')));
+    state.rightItems.forEach(item=> el.colRight.appendChild(makeCard(item,'right')));
+  } else { // random scatter in stageContent
+    el.gameArea.style.display='block';
+    el.colLeft.innerHTML=''; el.colRight.innerHTML='';
+    const all = shuffle([ ...state.leftItems.map(i=>({...i,side:'left'})), ...state.rightItems.map(i=>({...i,side:'right'})) ]);
     const pad = 20;
-    const rect = stage.getBoundingClientRect();
+    const rect = el.stageContent.getBoundingClientRect();
     const W = Math.max(rect.width - pad*2, 300);
     const H = Math.max(rect.height - pad*2, 300);
     const placed = [];
     all.forEach((it)=>{
-      const card = makeCard(it, it.side);
+      const card = makeCard(it,it.side);
       card.classList.add('scatter-item');
       let attempts=0;
-      while(attempts < 80){
+      while(attempts<80){
         const w = 140 + Math.random()*80; const h = 40 + Math.random()*80;
         const x = pad + Math.random()*(W - w);
         const y = pad + Math.random()*(H - h);
-        const ok = placed.every(p=> {
+        const ok = placed.every(p=>{
           const dx = p.x - x; const dy = p.y - y;
-          return Math.sqrt(dx*dx + dy*dy) > Math.min(p.w,p.h) * 0.8;
+          return Math.sqrt(dx*dx + dy*dy) > Math.min(p.w,p.h) * 0.9;
         });
         if(ok || attempts>60){
           placed.push({x,y,w,h});
-          card.style.left = Math.round(x) + 'px';
-          card.style.top = Math.round(y) + 'px';
-          card.style.width = Math.min(220, 120 + Math.random()*100) + 'px';
-          stage.appendChild(card);
+          card.style.left = Math.round(x)+'px';
+          card.style.top = Math.round(y)+'px';
+          card.style.width = Math.min(220,120 + Math.random()*100)+'px';
+          el.stageContent.appendChild(card);
           break;
         }
         attempts++;
@@ -413,99 +491,171 @@ function renderBoard(){
   }
 }
 
-/* click logic */
+/* ========== Interaction logic ========== */
 function onCardClick(e){
   const card = e.currentTarget;
   if(card.classList.contains('disabled')) return;
-  const side = card.dataset.side;
-  const id = card.dataset.id;
+  const side = card.dataset.side; const id = card.dataset.id;
+  if(!state.selected){ state.selected={side,id,el:card}; card.classList.add('selected'); el.message.textContent=''; return; }
+  if(state.selected.el === card){ state.selected=null; card.classList.remove('selected'); el.message.textContent=''; return; }
+  if(state.selected.side === side){ state.selected.el.classList.remove('selected'); state.selected={side,id,el:card}; card.classList.add('selected'); el.message.textContent=''; return; }
 
-  if(!state.selected){
-    state.selected = {side, id, el:card};
-    card.classList.add('selected');
-    messageEl.textContent = '';
-    return;
-  }
-  if(state.selected.el === card){
-    state.selected = null;
-    card.classList.remove('selected');
-    messageEl.textContent = '';
-    return;
-  }
-  if(state.selected.side === side){
-    state.selected.el.classList.remove('selected');
-    state.selected = {side, id, el:card};
-    card.classList.add('selected');
-    messageEl.textContent = '';
-    return;
-  }
+  const leftId = (side==='left')? id : state.selected.id;
+  const rightId = (side==='right')? id : state.selected.id;
+  const leftCard = (side==='left')? card : state.selected.el;
+  const rightCard = (side==='right')? card : state.selected.el;
 
-  const leftId = (side === 'left') ? id : state.selected.id;
-  const rightId = (side === 'right') ? id : state.selected.id;
-  const leftCard = (side === 'left') ? card : state.selected.el;
-  const rightCard = (side === 'right') ? card : state.selected.el;
-
-  // messages from inputs, fallback to locales
-  const fbCorrect = fbCorrectInput.value || t('correct');
-  const fbWrong = fbWrongInput.value || t('wrong');
-  const fbFinished = fbFinishedInput.value || t('finished');
+  const fbCorrect = el.fbCorrect.value || t('correct');
+  const fbWrong = el.fbWrong.value || t('wrong');
+  const fbFinished = el.fbFinished.value || t('finished');
 
   if(state.mapping[leftId] === rightId){
-    // correct
     leftCard.classList.add('correct','disabled');
     rightCard.classList.add('correct','disabled');
-    leftCard.classList.remove('selected');
-    rightCard.classList.remove('selected');
-
-    state.leftItems = state.leftItems.filter(it=>it.id !== leftId);
-    state.rightItems = state.rightItems.filter(it=>it.id !== rightId);
-    state.score++;
-    scoreEl.textContent = state.score;
-    leftCountEl.textContent = state.leftItems.length;
-    messageEl.textContent = fbCorrect;
-    setTimeout(()=>{ renderBoard(); if(state.leftItems.length === 0) messageEl.textContent = fbFinished; }, 250);
-    state.selected = null;
-    return;
+    leftCard.classList.remove('selected'); rightCard.classList.remove('selected');
+    state.leftItems = state.leftItems.filter(it=>it.id!==leftId);
+    state.rightItems = state.rightItems.filter(it=>it.id!==rightId);
+    state.score++; el.score.textContent=state.score; el.leftCount.textContent=state.leftItems.length;
+    el.message.textContent = fbCorrect;
+    setTimeout(()=>{ renderBoard(); if(state.leftItems.length===0) el.message.textContent = fbFinished; }, 250);
+    state.selected=null; return;
   } else {
-    // wrong — add temporary visual flash using CSS var
-    const wrongColor = getComputedStyle(stage).getPropertyValue('--wrong-color') || '#ef4444';
-    leftCard.classList.add('wrong');
-    rightCard.classList.add('wrong');
-    // add flash class for colored ring
-    leftCard.classList.add('flash-wrong');
-    rightCard.classList.add('flash-wrong');
-    // set inline var to ensure CSS sees color
-    stage.style.setProperty('--wrong-color', wrongColor.trim());
-    messageEl.textContent = fbWrong;
-    setTimeout(()=>{
-      leftCard.classList.remove('wrong','flash-wrong');
-      rightCard.classList.remove('wrong','flash-wrong');
-      if(state.selected) state.selected.el.classList.remove('selected');
-      state.selected = null;
-      messageEl.textContent = '';
-    }, 600);
+    const wrongColor = getComputedStyle(document.documentElement).getPropertyValue('--wrong-color') || el.wrongColor.value;
+    leftCard.classList.add('wrong','flash-wrong'); rightCard.classList.add('wrong','flash-wrong');
+    document.documentElement.style.setProperty('--wrong-color', wrongColor.trim());
+    el.message.textContent = fbWrong;
+    setTimeout(()=>{ leftCard.classList.remove('wrong','flash-wrong'); rightCard.classList.remove('wrong','flash-wrong'); if(state.selected) state.selected.el.classList.remove('selected'); state.selected=null; el.message.textContent=''; }, 700);
     return;
   }
 }
 
-/* ---- controls ---- */
-const pairsInput = document.getElementById('pairsInput');
-const previewBtn = document.getElementById('previewBtn');
-const generateBtn = document.getElementById('generateBtn');
-const embedCodeEl = document.getElementById('embedCode');
-const resetBtn = document.getElementById('resetBtn');
-const startBtn = document.getElementById('startBtn');
-const clearBtn = document.getElementById('clearBtn');
-const previewH = document.getElementById('previewH');
-const fullscreenBtn = document.getElementById('fullscreenBtn');
-const langSelect = document.getElementById('langSelect');
-const bgColor = document.getElementById('bgColor');
-const bgTransparent = document.getElementById('bgTransparent');
-const bgEffect = document.getElementById('bgEffect');
-const layoutSelect = document.getElementById('layoutSelect');
-const embedLabelEl = document.getElementById('embedLabel');
+/* ========== Controls & UI behavior ========== */
+function readBgSettingsFromUI(){
+  const type = el.bgType.value;
+  const obj = { type };
+  if(type==='solid'){ obj.solid = el.bgSolid.value; }
+  else if(type==='gradient'){ obj.gradient = { g1: el.g1.value, g2: el.g2.value, g3: el.g3.value || null, dir: el.gDir.value }; }
+  else if(type==='image'){ obj.imageUrl = el.bgImageUrl.value; }
+  obj.blur = parseInt(el.blurRange.value,10) || 0;
+  obj.blurAnim = el.blurAnim.checked;
+  obj.blurAnimDur = parseFloat(el.blurAnimDur.value) || 4;
+  obj.glitchMode = el.glitchMode.value;
+  obj.glitchIntensity = parseInt(el.glitchIntensity.value,10) || 4;
+  return obj;
+}
 
-/* apply locale to UI */
+function buildAndRender(){
+  const raw = parsePairs(el.pairsInput.value);
+  if(!raw.length){ el.message.textContent = t('noPairs'); clearBoard(); el.leftCount.textContent='0'; el.score.textContent='0'; return; }
+  buildStateFromPairs(raw);
+  renderBoard();
+}
+
+/* UI event bindings */
+el.previewBtn.addEventListener('click', ()=>{
+  buildAndRender();
+  const h = parseInt(el.previewH.value,10) || 520;
+  document.getElementById('stage').style.minHeight = h+'px';
+});
+el.clearBtn.addEventListener('click', ()=>{ el.pairsInput.value=''; el.embedCode.value=''; clearBoard(); el.leftCount.textContent='0'; el.score.textContent='0'; el.message.textContent=''; });
+
+/* Generate iframe: include full settings */
+el.generateBtn.addEventListener('click', ()=>{
+  const raw = parsePairs(el.pairsInput.value);
+  if(!raw.length){ alert(t('noPairs')); return; }
+  const settings = {
+    pairs: raw,
+    lang: currentLang,
+    layout: el.layoutSelect.value,
+    colors: { card: el.cardColor.value, correct: el.correctColor.value, wrong: el.wrongColor.value },
+    feedback: { correct: el.fbCorrect.value || t('correct'), wrong: el.fbWrong.value || t('wrong'), finished: el.fbFinished.value || t('finished') },
+    bg: readBgSettingsFromUI()
+  };
+  const token = encodeGame(settings);
+  let base;
+  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
+  const src = base + '?game=' + encodeURIComponent(token) + '&embed=1';
+  el.embedCode.value = `<iframe src="${src}" style="width:100%;height:600px;border:0;" allowfullscreen></iframe>`;
+  buildAndRender();
+  el.message.textContent = t('addedMsg');
+});
+
+/* Start full */
+el.startBtn.addEventListener('click', ()=>{
+  const raw = parsePairs(el.pairsInput.value);
+  if(!raw.length){ alert(t('noPairs')); return; }
+  const settings = {
+    pairs: raw,
+    lang: currentLang,
+    layout: el.layoutSelect.value,
+    colors: { card: el.cardColor.value, correct: el.correctColor.value, wrong: el.wrongColor.value },
+    feedback: { correct: el.fbCorrect.value || t('correct'), wrong: el.fbWrong.value || t('wrong'), finished: el.fbFinished.value || t('finished') },
+    bg: readBgSettingsFromUI()
+  };
+  const token = encodeGame(settings);
+  let base;
+  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
+  window.open(base + '?game=' + encodeURIComponent(token), '_blank');
+});
+
+/* Reset */
+el.resetBtn.addEventListener('click', ()=>{ buildAndRender(); el.message.textContent=''; });
+
+/* Fullscreen / open full (in editor only) */
+el.fullscreenBtn.addEventListener('click', ()=>{
+  const raw = parsePairs(el.pairsInput.value);
+  if(!raw.length){ alert(t('noPairs')); return; }
+  const settings = {
+    pairs: raw,
+    lang: currentLang,
+    layout: el.layoutSelect.value,
+    colors: { card: el.cardColor.value, correct: el.correctColor.value, wrong: el.wrongColor.value },
+    feedback: { correct: el.fbCorrect.value || t('correct'), wrong: el.fbWrong.value || t('wrong'), finished: el.fbFinished.value || t('finished') },
+    bg: readBgSettingsFromUI()
+  };
+  const token = encodeGame(settings);
+  let base;
+  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
+  window.open(base + '?game=' + encodeURIComponent(token), '_blank');
+});
+
+/* language */
+el.langSelect.addEventListener('change', ()=>{
+  currentLang = el.langSelect.value;
+  applyLocale();
+});
+
+/* feedback dirty tracking */
+el.fbCorrect.addEventListener('input', ()=> fbDirty.correct = true);
+el.fbWrong.addEventListener('input', ()=> fbDirty.wrong = true);
+el.fbFinished.addEventListener('input', ()=> fbDirty.finished = true);
+
+/* background UI toggles */
+el.bgType.addEventListener('change', ()=>{
+  const t = el.bgType.value;
+  el.gradientControls.style.display = (t==='gradient') ? 'block' : 'none';
+  el.bgImageUrl.style.display = (t==='image') ? 'inline-block' : 'none';
+  el.bgSolid.style.display = (t==='solid') ? 'inline-block' : 'none';
+});
+el.bgType.dispatchEvent(new Event('change'));
+
+el.blurRange.addEventListener('input', ()=>{ el.blurVal.textContent = el.blurRange.value; });
+el.blurRange.dispatchEvent(new Event('input'));
+
+/* live color application */
+el.cardColor.addEventListener('input', ()=>{ document.documentElement.style.setProperty('--card-bg', el.cardColor.value); renderBoard(); });
+el.correctColor.addEventListener('input', ()=>{ document.documentElement.style.setProperty('--correct-color', el.correctColor.value); renderBoard(); });
+el.wrongColor.addEventListener('input', ()=>{ document.documentElement.style.setProperty('--wrong-color', el.wrongColor.value); renderBoard(); });
+
+/* background inputs -> re-render bg quickly */
+['bgSolid','g1','g2','g3','gDir','bgImageUrl','blurRange','blurAnim','blurAnimDur','glitchMode','glitchIntensity'].forEach(id=>{
+  const elx = document.getElementById(id);
+  if(elx) elx.addEventListener('input', ()=> renderBoard());
+});
+
+/* ========== Embed / game-only mode ========== */
+function getQueryParam(n){ return new URLSearchParams(location.search).get(n); }
+
 function applyLocale(){
   document.getElementById('titleText').textContent = t('title');
   document.getElementById('subtitleText').textContent = t('subtitle');
@@ -514,207 +664,79 @@ function applyLocale(){
   document.getElementById('settingsLabel').textContent = t('settings');
   document.getElementById('layoutLabel').textContent = t('layout');
   document.getElementById('previewHLabel').textContent = t('previewHeight');
-  embedLabelEl.textContent = t('embed');
+  el.embedLabel.textContent = t('embed');
   document.getElementById('previewTitle').textContent = t('previewTitle');
   document.getElementById('previewHint').textContent = t('previewHint');
 
-  // feedback inputs: set defaults if not dirty
-  if(!fbCorrectDirty) fbCorrectInput.value = t('correct');
-  if(!fbWrongDirty) fbWrongInput.value = t('wrong');
-  if(!fbFinishedDirty) fbFinishedInput.value = t('finished');
+  if(!fbDirty.correct) el.fbCorrect.value = t('correct');
+  if(!fbDirty.wrong) el.fbWrong.value = t('wrong');
+  if(!fbDirty.finished) el.fbFinished.value = t('finished');
 }
-
-/* background application */
-function applyBackgroundOptions(){
-  const transparent = bgTransparent.checked;
-  const color = bgColor.value || '#071427';
-  const effect = bgEffect.value || 'none';
-  if(transparent){
-    stage.style.background = 'transparent';
-  } else {
-    stage.style.background = color;
-  }
-  stage.classList.remove('effect-blur','effect-glitch');
-  stage.style.filter = '';
-  if(effect === 'blur'){ stage.classList.add('effect-blur'); }
-  else if(effect === 'glitch'){ stage.classList.add('effect-glitch'); }
-}
-
-/* feedback input dirty tracking */
-fbCorrectInput.addEventListener('input', ()=>{ fbCorrectDirty = true; });
-fbWrongInput.addEventListener('input', ()=>{ fbWrongDirty = true; });
-fbFinishedInput.addEventListener('input', ()=>{ fbFinishedDirty = true; });
-
-/* color change apply to CSS var instantly */
-correctColorInput.addEventListener('input', ()=>{ stage.style.setProperty('--correct-color', correctColorInput.value); });
-wrongColorInput.addEventListener('input', ()=>{ stage.style.setProperty('--wrong-color', wrongColorInput.value); });
-
-/* build & render */
-function buildAndRender(){
-  const raw = parsePairs(pairsInput.value);
-  if(raw.length===0){
-    messageEl.textContent = t('noPairs');
-    clearBoard();
-    leftCountEl.textContent = '0';
-    scoreEl.textContent = '0';
-    return;
-  }
-  buildStateFromPairs(raw);
-  applyBackgroundOptions();
-  // apply colors
-  stage.style.setProperty('--correct-color', correctColorInput.value);
-  stage.style.setProperty('--wrong-color', wrongColorInput.value);
-  renderBoard();
-}
-
-previewBtn.addEventListener('click', ()=>{
-  buildAndRender();
-  const h = parseInt(previewH.value,10) || 520;
-  document.getElementById('stage').style.minHeight = h + 'px';
-});
-
-/* generate iframe: include settings (colors, feedbacks, lang, layout, bg) */
-generateBtn.addEventListener('click', ()=>{
-  const raw = parsePairs(pairsInput.value);
-  if(raw.length===0){
-    embedCodeEl.value = '';
-    alert(t('noPairs'));
-    return;
-  }
-  const settings = {
-    pairs: raw,
-    lang: currentLang,
-    bg: { color: bgColor.value, transparent: bgTransparent.checked, effect: bgEffect.value },
-    layout: layoutSelect.value,
-    colors: { correct: correctColorInput.value, wrong: wrongColorInput.value },
-    feedback: { correct: fbCorrectInput.value || t('correct'), wrong: fbWrongInput.value || t('wrong'), finished: fbFinishedInput.value || t('finished') }
-  };
-  const token = encodeGame(settings);
-  let base;
-  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
-  const src = base + '?game=' + encodeURIComponent(token) + '&embed=1';
-  const iframeCode = `<iframe src="${src}" style="width:100%;height:600px;border:0;" allowfullscreen></iframe>`;
-  embedCodeEl.value = iframeCode;
-  buildAndRender();
-  messageEl.textContent = t('addedMsg');
-});
-
-/* reset/start/clear/fullscreen */
-resetBtn.addEventListener('click', ()=>{ buildAndRender(); messageEl.textContent=''; });
-
-startBtn.addEventListener('click', ()=>{
-  const raw = parsePairs(pairsInput.value);
-  if(raw.length===0){ alert(t('noPairs')); return; }
-  const settings = {
-    pairs: raw,
-    lang: currentLang,
-    bg: { color: bgColor.value, transparent: bgTransparent.checked, effect: bgEffect.value },
-    layout: layoutSelect.value,
-    colors: { correct: correctColorInput.value, wrong: wrongColorInput.value },
-    feedback: { correct: fbCorrectInput.value || t('correct'), wrong: fbWrongInput.value || t('wrong'), finished: fbFinishedInput.value || t('finished') }
-  };
-  const token = encodeGame(settings);
-  let base;
-  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
-  const src = base + '?game=' + encodeURIComponent(token);
-  window.open(src, '_blank');
-});
-
-clearBtn.addEventListener('click', ()=>{
-  pairsInput.value = ''; embedCodeEl.value = ''; clearBoard(); leftCountEl.textContent='0'; scoreEl.textContent='0'; messageEl.textContent=''; });
-
-fullscreenBtn.addEventListener('click', ()=>{
-  const raw = parsePairs(pairsInput.value);
-  if(raw.length===0){ alert(t('noPairs')); return; }
-  const settings = {
-    pairs: raw,
-    lang: currentLang,
-    bg: { color: bgColor.value, transparent: bgTransparent.checked, effect: bgEffect.value },
-    layout: layoutSelect.value,
-    colors: { correct: correctColorInput.value, wrong: wrongColorInput.value },
-    feedback: { correct: fbCorrectInput.value || t('correct'), wrong: fbWrongInput.value || t('wrong'), finished: fbFinishedInput.value || t('finished') }
-  };
-  const token = encodeGame(settings);
-  let base;
-  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
-  const src = base + '?game=' + encodeURIComponent(token);
-  window.open(src, '_blank');
-});
-
-/* change language -> apply locale and update feedback if not dirty */
-langSelect.addEventListener('change', ()=>{
-  currentLang = langSelect.value;
-  applyLocale();
-});
-
-/* background controls */
-bgColor.addEventListener('input', applyBackgroundOptions);
-bgTransparent.addEventListener('change', applyBackgroundOptions);
-bgEffect.addEventListener('change', applyBackgroundOptions);
-
-/* ---- embed / game-only mode ---- */
-function getQueryParam(name){ return new URLSearchParams(location.search).get(name); }
 
 function runEmbeddedGameFromParam(){
   const gameToken = getQueryParam('game');
   if(!gameToken) return false;
   const obj = decodeGame(gameToken);
-  if(!obj || !Array.isArray(obj.pairs)) { messageEl.textContent = t('invalidGame'); return true; }
+  if(!obj || !Array.isArray(obj.pairs)){ el.message.textContent = t('invalidGame'); return true; }
   const embed = getQueryParam('embed') !== null;
 
-  // apply settings if present
+  // apply settings
   currentLang = obj.lang || currentLang;
-  langSelect.value = currentLang;
+  el.langSelect.value = currentLang;
   applyLocale();
 
-  if(obj.bg){
-    if(obj.bg.color) bgColor.value = obj.bg.color;
-    if(typeof obj.bg.transparent === 'boolean') bgTransparent.checked = obj.bg.transparent;
-    if(obj.bg.effect) bgEffect.value = obj.bg.effect;
-  }
-  if(obj.layout) layoutSelect.value = obj.layout;
+  if(obj.layout) el.layoutSelect.value = obj.layout;
   if(obj.colors){
-    if(obj.colors.correct) correctColorInput.value = obj.colors.correct;
-    if(obj.colors.wrong) wrongColorInput.value = obj.colors.wrong;
-    stage.style.setProperty('--correct-color', correctColorInput.value);
-    stage.style.setProperty('--wrong-color', wrongColorInput.value);
+    if(obj.colors.card) el.cardColor.value = obj.colors.card;
+    if(obj.colors.correct) el.correctColor.value = obj.colors.correct;
+    if(obj.colors.wrong) el.wrongColor.value = obj.colors.wrong;
+    document.documentElement.style.setProperty('--card-bg', el.cardColor.value);
+    document.documentElement.style.setProperty('--correct-color', el.correctColor.value);
+    document.documentElement.style.setProperty('--wrong-color', el.wrongColor.value);
   }
   if(obj.feedback){
-    // apply feedback texts and mark dirty (so UI won't override on lang change)
-    fbCorrectInput.value = obj.feedback.correct || fbCorrectInput.value;
-    fbWrongInput.value = obj.feedback.wrong || fbWrongInput.value;
-    fbFinishedInput.value = obj.feedback.finished || fbFinishedInput.value;
-    fbCorrectDirty = fbWrongDirty = fbFinishedDirty = true;
+    if(obj.feedback.correct) el.fbCorrect.value = obj.feedback.correct;
+    if(obj.feedback.wrong) el.fbWrong.value = obj.feedback.wrong;
+    if(obj.feedback.finished) el.fbFinished.value = obj.feedback.finished;
+    fbDirty.correct = fbDirty.wrong = fbDirty.finished = true;
   }
+  if(obj.bg){
+    const b = obj.bg;
+    if(b.type) el.bgType.value = b.type;
+    if(b.type==='solid' && b.solid) el.bgSolid.value = b.solid;
+    if(b.type==='gradient' && b.gradient){ el.g1.value = b.gradient.g1 || el.g1.value; el.g2.value = b.gradient.g2 || el.g2.value; el.g3.value = b.gradient.g3 || el.g3.value; el.gDir.value = b.gradient.dir || el.gDir.value; }
+    if(b.type==='image' && b.imageUrl) el.bgImageUrl.value = b.imageUrl;
+    if(typeof b.blur === 'number') el.blurRange.value = b.blur;
+    if(typeof b.blurAnim === 'boolean') el.blurAnim.checked = b.blurAnim;
+    if(typeof b.blurAnimDur === 'number') el.blurAnimDur.value = b.blurAnimDur;
+    if(b.glitchMode) el.glitchMode.value = b.glitchMode;
+    if(b.glitchIntensity) el.glitchIntensity.value = b.glitchIntensity;
+  }
+  // make UI reflect bgType specifics
+  el.bgType.dispatchEvent(new Event('change'));
 
   if(embed){
-    // hide editor UI and disable "Open full" button in embed mode
+    // hide editor and header/footer and remove fullscreen button (no navigation from embed)
     const editorPanel = document.getElementById('editorPanel'); if(editorPanel) editorPanel.remove();
-    document.querySelector('header')?.remove();
-    document.querySelector('footer')?.remove();
-    document.getElementById('appRoot').style.gridTemplateColumns = '1fr';
-    document.body.style.background = 'linear-gradient(180deg,#041023,#071127)';
-    // remove or hide the Open full button so user cannot go to editor/full version from embedded iframe
-    const fullBtn = document.getElementById('fullscreenBtn');
-    if(fullBtn) fullBtn.remove();
+    document.querySelector('header')?.remove(); document.querySelector('footer')?.remove();
+    document.getElementById('appRoot').style.gridTemplateColumns='1fr';
+    document.body.style.background='linear-gradient(180deg,#041023,#071127)';
+    const fb = document.getElementById('fullscreenBtn'); if(fb) fb.remove();
   }
 
-  pairsInput.value = obj.pairs.map(p=>p.left + ' | ' + p.right).join('\n');
+  el.pairsInput.value = obj.pairs.map(p=>p.left + ' | ' + p.right).join('\n');
   buildAndRender();
-  if(embed){
-    document.getElementById('stage').style.minHeight = '100vh';
-  }
+  if(embed) document.getElementById('stage').style.minHeight='100vh';
   return true;
 }
 
-/* ---- init ---- */
+/* ========== Initialization ========== */
 window.addEventListener('load', ()=>{
   applyLocale();
-  applyBackgroundOptions();
   const handled = runEmbeddedGameFromParam();
   if(!handled){
-    if(!pairsInput.value){
-      pairsInput.value = 'Apple | https://i.imgur.com/8Km9tLL.png\nCat | https://i.imgur.com/5bY0X3j.png\nBanana | https://i.imgur.com/1nP9K7G.jpg';
+    if(!el.pairsInput.value){
+      el.pairsInput.value = 'Apple | https://i.imgur.com/8Km9tLL.png\nCat | https://i.imgur.com/5bY0X3j.png\nBanana | https://i.imgur.com/1nP9K7G.jpg';
     }
     buildAndRender();
   } else {
@@ -722,9 +744,9 @@ window.addEventListener('load', ()=>{
   }
 });
 
-/* responsive: re-render random layout on resize to reposition scatter */
+/* responsive: recalc scatter positions on resize */
 let resizeTimeout;
-window.addEventListener('resize', ()=>{ clearTimeout(resizeTimeout); resizeTimeout = setTimeout(()=>{ if(layoutSelect.value==='random') renderBoard(); }, 200); });
+window.addEventListener('resize', ()=>{ clearTimeout(resizeTimeout); resizeTimeout = setTimeout(()=>{ if(el.layoutSelect.value==='random') renderBoard(); }, 220); });
 </script>
 </body>
 </html>
