@@ -51,12 +51,10 @@
     .flex-vertical{display:flex;flex-direction:column}
     .hidden{display:none}
     footer{margin-top:12px;color:var(--muted);font-size:13px}
-    /* responsive for small screens */
     @media (max-width:900px){
       .container{grid-template-columns:1fr; padding-bottom:40px}
       .game-area{grid-template-columns:1fr;align-items:stretch}
     }
-    /* scaled items in iframe: use CSS variable --scale if needed */
     .card img{width:100%;height:auto}
   </style>
 </head>
@@ -68,7 +66,7 @@
 
   <main class="container" id="appRoot">
     <section class="panel editor" id="editorPanel">
-      <div class="hint">Формат: одна пара на строку. Разделители: | , \t , => , - . Примеры:
+      <div class="hint">Формат: одна пара на строку. Разделители: | , => , таб, " - " (пробел-минус-пробел). Примеры:
         <div class="small">apple | https://.../apple.gif</div>
         <div class="small">кошка | cat.png</div>
       </div>
@@ -76,7 +74,7 @@
       <label>Пары (левое и правое через разделитель)</label>
       <textarea id="pairsInput" placeholder="apple | https://example.com/apple.gif
 кошка | https://example.com/cat.png
-banana | банан"></textarea>
+banana | банan"></textarea>
 
       <div class="row">
         <div>
@@ -138,10 +136,9 @@ banana | банан"></textarea>
   <footer>Prototype — вставляйте iframe в платформы (Genially и т.п.).</footer>
 
 <script>
-/* Utilities for safe base64 <-> JSON */
+/* Utilities для base64 <-> JSON */
 function encodeGame(obj){
   const s = JSON.stringify(obj);
-  // safe base64
   return btoa(unescape(encodeURIComponent(s)));
 }
 function decodeGame(b){
@@ -152,25 +149,39 @@ function decodeGame(b){
   }
 }
 
+/* Улучшённый парсер пар — не ломает URL с ":" или "-" */
 function parsePairs(text){
-  const lines = text.split(/\\r?\\n/).map(l=>l.trim()).filter(Boolean);
+  const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
   const pairs = [];
   for(const line of lines){
-    // split by common separators
-    const sepMatch = line.match(/\\s*(?:\\||=>|\\t|\\-|:|,)\\s*/);
-    let left,right;
-    if(sepMatch){
-      const parts = line.split(/\\s*(?:\\||=>|\\t|\\-|:|,)\\s*/);
-      left = parts[0] || '';
-      right = parts.slice(1).join('|') || '';
-    }else{
-      // if no separator, try split by whitespace
-      const parts = line.split(/\\s+/);
-      left = parts[0] || '';
-      right = parts.slice(1).join(' ') || '';
+    let left = '', right = '';
+
+    // ищем разделители, но только явные (чтобы не разбить URL)
+    const candidates = [];
+    const idxPipe = line.indexOf('|'); if(idxPipe !== -1) candidates.push({i: idxPipe, sep: '|' });
+    const idxArrow = line.indexOf('=>'); if(idxArrow !== -1) candidates.push({i: idxArrow, sep: '=>'});
+    const idxTab = line.indexOf('\t'); if(idxTab !== -1) candidates.push({i: idxTab, sep: '\t'});
+    const idxDashSp = line.indexOf(' - '); if(idxDashSp !== -1) candidates.push({i: idxDashSp, sep: ' - '});
+    const idxColonSp = line.indexOf(' : '); if(idxColonSp !== -1) candidates.push({i: idxColonSp, sep: ' : '});
+    const idxCommaSp = line.indexOf(', '); if(idxCommaSp !== -1) candidates.push({i: idxCommaSp, sep: ', '});
+
+    if(candidates.length > 0){
+      candidates.sort((a,b)=>a.i-b.i);
+      const ch = candidates[0];
+      left = line.slice(0, ch.i).trim();
+      right = line.slice(ch.i + ch.sep.length).trim();
+    } else {
+      // fallback: разделяем по первому пробелу — это пригодится если пользователь ввёл "apple https://..."
+      const parts = line.split(/\s+/);
+      if(parts.length >= 2){
+        left = parts[0];
+        right = parts.slice(1).join(' ');
+      } else {
+        // если не получилось — пропускаем строку
+        continue;
+      }
     }
-    left = left.trim();
-    right = right.trim();
+
     if(!left || !right) continue;
     pairs.push({left, right});
   }
@@ -188,7 +199,6 @@ function isImageUrl(s){
   }
 }
 
-/* shuffle */
 function shuffle(a){
   for(let i=a.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
@@ -197,16 +207,8 @@ function shuffle(a){
   return a;
 }
 
-/* Rendering game */
-let state = {
-  pairs: [], // array of {id,left,right}
-  leftItems: [], // shuffled
-  rightItems: [],
-  mapping: {}, // leftId -> rightId
-  selected: null, // {side:'left'|'right', id}
-  score:0
-};
-
+/* State и отрисовка */
+let state = { pairs: [], leftItems: [], rightItems: [], mapping: {}, selected: null, score: 0 };
 const colLeft = document.getElementById('colLeft');
 const colRight = document.getElementById('colRight');
 const leftCountEl = document.getElementById('leftCount');
@@ -222,7 +224,6 @@ function buildStateFromPairs(pairsRaw){
     rightIsImage: isImageUrl(p.right)
   }));
   state.pairs = pairs;
-  // build items
   state.leftItems = shuffle(pairs.map(p=>({id:p.id, text:p.left, isImage:p.leftIsImage})));
   state.rightItems = shuffle(pairs.map(p=>({id:p.id, text:p.right, isImage:p.rightIsImage})));
   state.mapping = {};
@@ -241,7 +242,6 @@ function renderBoard(){
   clearBoard();
   leftCountEl.textContent = state.leftItems.length;
   scoreEl.textContent = state.score;
-  // left column
   state.leftItems.forEach(item=>{
     const card = document.createElement('div');
     card.className='card';
@@ -251,6 +251,7 @@ function renderBoard(){
       const img = document.createElement('img');
       img.src = item.text;
       img.alt = '';
+      img.onerror = ()=>{ img.style.opacity = 0.6; };
       card.appendChild(img);
     }else{
       const txt = document.createElement('div');
@@ -261,7 +262,6 @@ function renderBoard(){
     card.addEventListener('click', onCardClick);
     colLeft.appendChild(card);
   });
-  // right column
   state.rightItems.forEach(item=>{
     const card = document.createElement('div');
     card.className='card';
@@ -271,6 +271,7 @@ function renderBoard(){
       const img = document.createElement('img');
       img.src = item.text;
       img.alt = '';
+      img.onerror = ()=>{ img.style.opacity = 0.6; };
       card.appendChild(img);
     }else{
       const txt = document.createElement('div');
@@ -289,15 +290,13 @@ function onCardClick(e){
   const side = card.dataset.side;
   const id = card.dataset.id;
 
-  // first click
   if(!state.selected){
     state.selected = {side, id, el:card};
     card.classList.add('selected');
-    messageEl.textContent = 'Выбрано: ' + (side === 'left' ? 'лево' : 'право');
+    messageEl.textContent = 'Выбрано';
     return;
   }
 
-  // clicking same card again -> unselect
   if(state.selected.el === card){
     state.selected = null;
     card.classList.remove('selected');
@@ -305,7 +304,6 @@ function onCardClick(e){
     return;
   }
 
-  // if same side clicked, switch selection
   if(state.selected.side === side){
     state.selected.el.classList.remove('selected');
     state.selected = {side, id, el:card};
@@ -314,42 +312,32 @@ function onCardClick(e){
     return;
   }
 
-  // now selected.side != side -> check match
   const leftId = (side === 'left') ? id : state.selected.id;
   const rightId = (side === 'right') ? id : state.selected.id;
-
   const leftCard = (side === 'left') ? card : state.selected.el;
   const rightCard = (side === 'right') ? card : state.selected.el;
 
-  // correct if mapping[leftId] === rightId
   if(state.mapping[leftId] === rightId){
-    // mark correct
     leftCard.classList.add('correct','disabled');
     rightCard.classList.add('correct','disabled');
     leftCard.classList.remove('selected');
     rightCard.classList.remove('selected');
 
-    // remove items from arrays
     state.leftItems = state.leftItems.filter(it=>it.id !== leftId);
     state.rightItems = state.rightItems.filter(it=>it.id !== rightId);
     state.score++;
     scoreEl.textContent = state.score;
     leftCountEl.textContent = state.leftItems.length;
-
     messageEl.textContent = 'Правильно!';
-    // play success briefly
     setTimeout(()=>{
-      // re-render to ensure UI consistent
       renderBoard();
       if(state.leftItems.length === 0){
         messageEl.textContent = 'Поздравляем! Все пары сопоставлены.';
       }
     }, 250);
-
     state.selected = null;
     return;
   }else{
-    // wrong
     leftCard.classList.add('wrong');
     rightCard.classList.add('wrong');
     messageEl.textContent = 'Неправильно...';
@@ -390,7 +378,6 @@ function buildAndRender(){
 
 previewBtn.addEventListener('click', ()=>{
   buildAndRender();
-  // adjust preview height
   const h = parseInt(previewH.value,10) || 520;
   document.getElementById('stage').style.minHeight = h + 'px';
 });
@@ -404,7 +391,6 @@ generateBtn.addEventListener('click', ()=>{
   }
   const gameObj = {pairs: raw};
   const token = encodeGame(gameObj);
-  // construct src - use location.href as base to be safe for file:// and GH
   let base;
   try{
     base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0];
@@ -414,7 +400,6 @@ generateBtn.addEventListener('click', ()=>{
   const src = base + '?game=' + encodeURIComponent(token) + '&embed=1';
   const iframeCode = `<iframe src="${src}" style="width:100%;height:600px;border:0;" allowfullscreen></iframe>`;
   embedCodeEl.value = iframeCode;
-  // also show small preview
   buildAndRender();
   messageEl.textContent = 'Iframe сгенерирован. Скопируйте код справа.';
 });
@@ -432,11 +417,7 @@ startBtn.addEventListener('click', ()=>{
   }
   const token = encodeGame({pairs: raw});
   let base;
-  try{
-    base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0];
-  }catch(e){
-    base = location.href.split('?')[0];
-  }
+  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
   const src = base + '?game=' + encodeURIComponent(token);
   window.open(src, '_blank');
 });
@@ -450,7 +431,7 @@ clearBtn.addEventListener('click', ()=>{
   messageEl.textContent = '';
 });
 
-/* On load: if ?game=... present, run game-only mode */
+/* support режима при загрузке ?game=... */
 function getQueryParam(name){
   const params = new URLSearchParams(location.search);
   return params.get(name);
@@ -462,24 +443,20 @@ function runEmbeddedGameFromParam(){
   const obj = decodeGame(gameToken);
   if(!obj || !Array.isArray(obj.pairs)) {
     messageEl.textContent = 'Неверный формат игры.';
-    return true; // we handled (error)
+    return true;
   }
-  // hide editor if embed param or when loaded with game
   const embed = getQueryParam('embed') !== null;
   if(embed){
     const editorPanel = document.getElementById('editorPanel');
-    editorPanel.parentNode.removeChild(editorPanel);
+    if(editorPanel) editorPanel.parentNode.removeChild(editorPanel);
     document.querySelector('header')?.remove();
     document.querySelector('footer')?.remove();
-    // make container full width
     document.getElementById('appRoot').style.gridTemplateColumns = '1fr';
     document.body.style.background = 'linear-gradient(180deg,#041023,#071127)';
   }
-  pairsInput.value = obj.pairs.map(p=>p.left + ' | ' + p.right).join('\\n');
+  pairsInput.value = obj.pairs.map(p=>p.left + ' | ' + p.right).join('\n');
   buildAndRender();
-  // if embed: try to make full height fit
   if(embed){
-    // stretch stage to viewport
     document.getElementById('stage').style.minHeight = '100vh';
   }
   return true;
@@ -488,15 +465,13 @@ function runEmbeddedGameFromParam(){
 window.addEventListener('load', ()=>{
   const handled = runEmbeddedGameFromParam();
   if(!handled){
-    // show a small demo content
     if(!pairsInput.value) {
-      pairsInput.value = 'Apple | https://i.imgur.com/8Km9tLL.png\\nCat | https://i.imgur.com/5bY0X3j.png\\nBanana | banana';
+      pairsInput.value = 'Apple | https://i.imgur.com/8Km9tLL.png\nCat | https://i.imgur.com/5bY0X3j.png\nBanana | https://i.imgur.com/1nP9K7G.jpg';
     }
     buildAndRender();
   }
 });
 
-/* fullscreen/open full button */
 fullscreenBtn.addEventListener('click', ()=>{
   const raw = parsePairs(pairsInput.value);
   if(raw.length===0){ alert('Нет пар.'); return; }
