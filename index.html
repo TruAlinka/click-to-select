@@ -10,11 +10,11 @@
       --card:#0b1220;
       --accent:#2dd4bf;
       --muted:#9aa4b2;
-      --success:#16a34a;
-      --danger:#ef4444;
       --glass: rgba(255,255,255,0.04);
       --radius:12px;
       --gap:12px;
+      --correct-color: #16a34a;
+      --wrong-color: #ef4444;
     }
     *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial}
     body{margin:0;padding:16px;background:linear-gradient(180deg,#071127 0%, #081428 100%);color:#e6eef6;min-height:100vh}
@@ -33,17 +33,23 @@
     button.primary{background:var(--accent);color:#042022;border:0}
     .output textarea{min-height:80px}
     .preview-panel{display:flex;flex-direction:column;gap:8px;height:100%}
-    .stage{flex:1;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;align-items:stretch;overflow:auto}
+    .stage{flex:1;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;align-items:stretch;overflow:auto;position:relative}
+    .stage.glitch{overflow:hidden}
     .game-header{display:flex;justify-content:space-between;align-items:center;gap:8px}
     .game-area{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
-    .column{display:flex;flex-direction:column;gap:10px}
-    .card{background:var(--glass);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);cursor:pointer;display:flex;align-items:center;gap:10px}
+    .column{display:flex;flex-direction:column;gap:10px;min-height:120px}
+    .card{background:var(--glass);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);cursor:pointer;display:flex;align-items:center;gap:10px;transition:all .18s ease}
     .card.disabled{opacity:0.35;cursor:default}
     .card img{max-width:120px;max-height:90px;object-fit:contain;border-radius:6px}
-    .card .text{font-size:15px;color:#e8f9f5}
+    .card .text{font-size:15px;color:#e8f9f5;word-break:break-word}
     .selected{outline:3px solid rgba(45,212,191,0.18);box-shadow:0 6px 20px rgba(45,212,191,0.06)}
-    .correct{background:linear-gradient(90deg,var(--success),rgba(0,0,0,0.05));border:1px solid rgba(0,0,0,0.1);color:#042022}
-    .wrong{animation:shake 300ms ease}
+    .correct{
+      background:linear-gradient(90deg,var(--correct-color),rgba(0,0,0,0.05));
+      border-color: rgba(0,0,0,0.08);
+      color:#042022;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    }
+    .wrong{ animation:shake 300ms ease; box-shadow: 0 0 0 4px rgba(255,255,255,0.02); }
     @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
     .small{font-size:13px;color:var(--muted)}
     .controls-inline{display:flex;gap:8px;align-items:center}
@@ -56,42 +62,97 @@
       .game-area{grid-template-columns:1fr;align-items:stretch}
     }
     .card img{width:100%;height:auto}
+    /* scatter random */
+    .scatter-item{position:absolute;z-index:2;min-width:140px;max-width:220px}
+    /* blur effect */
+    .stage.effect-blur{filter:blur(6px)}
+    .stage.effect-glitch::before,
+    .stage.effect-glitch::after{
+      content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:0.06;
+      background:linear-gradient(90deg, rgba(255,0,150,0.2), rgba(0,200,255,0.2), rgba(0,255,150,0.2));
+      transform:translateX(0);
+      animation:glitchMove 3s infinite linear;
+    }
+    .stage.effect-glitch::after{animation-duration:2.1s;opacity:0.04}
+    @keyframes glitchMove{0%{transform:translateX(-10%)}50%{transform:translateX(10%)}100%{transform:translateX(-10%)}}
+    /* highlight wrong with user color (flash using CSS var) */
+    .flash-wrong{ box-shadow: 0 0 0 6px var(--wrong-color); }
   </style>
 </head>
 <body>
   <header>
-    <h1>Matching Game — Редактор</h1>
-    <div class="small">Вставляйте пары A | B — текст или ссылка на изображение (gif/png/jpg).</div>
+    <h1 id="titleText">Matching Game — Редактор</h1>
+    <div class="small" id="subtitleText">Вставляйте пары A | B — текст или ссылка на изображение (gif/png/jpg).</div>
   </header>
 
   <main class="container" id="appRoot">
     <section class="panel editor" id="editorPanel">
-      <div class="hint">Формат: одна пара на строку. Разделители: | , => , таб, " - " (пробел-минус-пробел). Примеры:
-        <div class="small">apple | https://.../apple.gif</div>
-        <div class="small">кошка | cat.png</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+        <div style="flex:1">
+          <div class="hint" id="hintText">Формат: одна пара на строку. Разделители: | , => , таб, " - " (пробел-минус-пробел).</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label class="small" for="langSelect">Language</label>
+          <select id="langSelect" style="padding:6px;border-radius:6px;background:rgba(255,255,255,0.02);color:inherit;border:1px solid rgba(255,255,255,0.04)">
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+          </select>
+        </div>
       </div>
 
-      <label>Пары (левое и правое через разделитель)</label>
+      <label id="pairsLabel">Пары (левое и правое через разделитель)</label>
       <textarea id="pairsInput" placeholder="apple | https://example.com/apple.gif
 кошка | https://example.com/cat.png
-banana | банan"></textarea>
+banana | банан"></textarea>
 
       <div class="row">
         <div>
-          <label>Настройки</label>
+          <label id="settingsLabel">Настройки</label>
           <div class="row">
             <div style="flex:1">
-              <label class="small">Кол-во столбцов (адаптируется автоматически)</label>
-              <select id="matchMode">
-                <option value="pairs">Пары A ↔ B</option>
+              <label class="small" id="layoutLabel">Layout</label>
+              <select id="layoutSelect">
+                <option value="horizontal">Horizontal (A ↔ B)</option>
+                <option value="vertical">Vertical (A above B)</option>
+                <option value="random">Random (scattered)</option>
               </select>
             </div>
             <div style="width:160px">
-              <label class="small">Размер превью высота (px)</label>
+              <label class="small" id="previewHLabel">Preview height (px)</label>
               <input id="previewH" type="number" min="200" value="520" style="width:100%;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)">
             </div>
           </div>
         </div>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <label class="small">Background</label>
+        <input id="bgColor" type="color" value="#071427" title="Background color">
+        <label style="display:flex;align-items:center;gap:6px" class="small"><input id="bgTransparent" type="checkbox"> Transparent</label>
+        <label class="small">Effect</label>
+        <select id="bgEffect"><option value="none">none</option><option value="blur">blur</option><option value="glitch">glitch</option></select>
+      </div>
+
+      <div style="margin:10px 0;padding:10px;border-radius:8px;background:rgba(255,255,255,0.01);">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <label class="small" style="width:140px">Correct color</label>
+          <input id="correctColor" type="color" value="#16a34a">
+          <label class="small" style="width:120px;margin-left:auto">Wrong color</label>
+          <input id="wrongColor" type="color" value="#ef4444">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <label class="small" style="width:140px">Feedback correct</label>
+          <input id="fbCorrect" type="text" style="flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)" placeholder="Correct!">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <label class="small" style="width:140px">Feedback wrong</label>
+          <input id="fbWrong" type="text" style="flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)" placeholder="Wrong...">
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <label class="small" style="width:140px">Feedback finished</label>
+          <input id="fbFinished" type="text" style="flex:1;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04)" placeholder="All matched!">
+        </div>
+        <div class="small" style="margin-top:8px;color:var(--muted)">Если вы вручную редактируете сообщения — автоматическая замена при смене языка отключится для изменённого поля.</div>
       </div>
 
       <div class="actions">
@@ -102,7 +163,7 @@ banana | банan"></textarea>
       </div>
 
       <div style="margin-top:10px">
-        <label>Embed code</label>
+        <label id="embedLabel">Embed code</label>
         <textarea id="embedCode" readonly placeholder="Сгенерируйте iframe — код появится здесь"></textarea>
       </div>
     </section>
@@ -110,11 +171,11 @@ banana | банan"></textarea>
     <section class="panel preview-panel" id="previewPanel">
       <div class="game-header">
         <div>
-          <strong>Preview / Game</strong>
-          <div class="small">Кликайте по карточкам — сопоставляйте пары.</div>
+          <strong id="previewTitle">Preview / Game</strong>
+          <div class="small" id="previewHint">Кликайте по карточкам — сопоставляйте пары.</div>
         </div>
         <div class="stats">
-          <div class="small">Осталось: <span id="leftCount">0</span></div>
+          <div class="small" id="leftCountWrap">Осталось: <span id="leftCount">0</span></div>
           <div class="small">Успехи: <span id="score">0</span></div>
           <div class="controls-inline">
             <button id="resetBtn">Reset</button>
@@ -133,30 +194,61 @@ banana | банan"></textarea>
     </section>
   </main>
 
-  <footer>Prototype — вставляйте iframe в платформы (Genially и т.п.).</footer>
+  <footer id="footerText">Prototype — вставляйте iframe в платформы (Genially и т.п.).</footer>
 
 <script>
-/* Utilities для base64 <-> JSON */
-function encodeGame(obj){
-  const s = JSON.stringify(obj);
-  return btoa(unescape(encodeURIComponent(s)));
-}
-function decodeGame(b){
-  try{
-    return JSON.parse(decodeURIComponent(escape(atob(b))));
-  }catch(e){
-    return null;
+/* ---- i18n ---- */
+const LOCALES = {
+  ru: {
+    title: 'Matching Game — Редактор',
+    subtitle: 'Вставляйте пары A | B — текст или ссылка на изображение (gif/png/jpg).',
+    hint: 'Формат: одна пара на строку. Разделители: | , => , таб, " - " (пробел-минус-пробел).',
+    pairsLabel: 'Пары (левое и правое через разделитель)',
+    settings: 'Настройки',
+    layout: 'Layout',
+    previewHeight: 'Размер превью высота (px)',
+    embed: 'Embed code',
+    previewTitle: 'Preview / Game',
+    previewHint: 'Кликайте по карточкам — сопоставляйте пары.',
+    noPairs: 'Нет пар для отображения.',
+    addedMsg: 'Iframe сгенерирован. Скопируйте код.',
+    invalidGame: 'Неверный формат игры.',
+    correct: 'Правильно!',
+    wrong: 'Неправильно...',
+    finished: 'Поздравляем! Все пары сопоставлены.'
+  },
+  en: {
+    title: 'Matching Game — Editor',
+    subtitle: 'Paste pairs A | B — text or image URL (gif/png/jpg).',
+    hint: 'Format: one pair per line. Separators: | , => , tab, " - " (space-dash-space).',
+    pairsLabel: 'Pairs (left and right separated)',
+    settings: 'Settings',
+    layout: 'Layout',
+    previewHeight: 'Preview height (px)',
+    embed: 'Embed code',
+    previewTitle: 'Preview / Game',
+    previewHint: 'Click cards to match pairs.',
+    noPairs: 'No pairs to display.',
+    addedMsg: 'Iframe generated. Copy the code.',
+    invalidGame: 'Invalid game format.',
+    correct: 'Correct!',
+    wrong: 'Wrong...',
+    finished: 'Congrats! All matched.'
   }
-}
+};
+function t(key){ return LOCALES[currentLang][key] || key; }
+let currentLang = 'ru';
 
-/* Улучшённый парсер пар — не ломает URL с ":" или "-" */
+/* ---- base64 helpers ---- */
+function encodeGame(obj){ const s = JSON.stringify(obj); return btoa(unescape(encodeURIComponent(s))); }
+function decodeGame(b){ try{ return JSON.parse(decodeURIComponent(escape(atob(b)))); }catch(e){ return null; } }
+
+/* ---- parser (бережный к URL) ---- */
 function parsePairs(text){
   const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
   const pairs = [];
   for(const line of lines){
     let left = '', right = '';
-
-    // ищем разделители, но только явные (чтобы не разбить URL)
     const candidates = [];
     const idxPipe = line.indexOf('|'); if(idxPipe !== -1) candidates.push({i: idxPipe, sep: '|' });
     const idxArrow = line.indexOf('=>'); if(idxArrow !== -1) candidates.push({i: idxArrow, sep: '=>'});
@@ -164,57 +256,52 @@ function parsePairs(text){
     const idxDashSp = line.indexOf(' - '); if(idxDashSp !== -1) candidates.push({i: idxDashSp, sep: ' - '});
     const idxColonSp = line.indexOf(' : '); if(idxColonSp !== -1) candidates.push({i: idxColonSp, sep: ' : '});
     const idxCommaSp = line.indexOf(', '); if(idxCommaSp !== -1) candidates.push({i: idxCommaSp, sep: ', '});
-
     if(candidates.length > 0){
       candidates.sort((a,b)=>a.i-b.i);
       const ch = candidates[0];
       left = line.slice(0, ch.i).trim();
       right = line.slice(ch.i + ch.sep.length).trim();
     } else {
-      // fallback: разделяем по первому пробелу — это пригодится если пользователь ввёл "apple https://..."
       const parts = line.split(/\s+/);
       if(parts.length >= 2){
         left = parts[0];
         right = parts.slice(1).join(' ');
-      } else {
-        // если не получилось — пропускаем строку
-        continue;
-      }
+      } else continue;
     }
-
     if(!left || !right) continue;
     pairs.push({left, right});
   }
   return pairs;
 }
-
 function isImageUrl(s){
   if(!s) return false;
-  try {
-    const u = new URL(s, location.href);
-    const path = u.pathname.toLowerCase();
-    return /\.(gif|png|jpe?g|svg|webp)$/.test(path) || s.startsWith('data:image');
-  } catch(e){
-    return false;
-  }
+  try { const u = new URL(s, location.href); const path = u.pathname.toLowerCase(); return /\.(gif|png|jpe?g|svg|webp)$/.test(path) || s.startsWith('data:image'); } catch(e){ return false; }
 }
 
-function shuffle(a){
-  for(let i=a.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [a[i],a[j]]=[a[j],a[i]];
-  }
-  return a;
-}
+/* ---- shuffle ---- */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 
-/* State и отрисовка */
+/* ---- state ---- */
 let state = { pairs: [], leftItems: [], rightItems: [], mapping: {}, selected: null, score: 0 };
 const colLeft = document.getElementById('colLeft');
 const colRight = document.getElementById('colRight');
 const leftCountEl = document.getElementById('leftCount');
 const scoreEl = document.getElementById('score');
 const messageEl = document.getElementById('message');
+const stage = document.getElementById('stage');
+const gameArea = document.getElementById('gameArea');
 
+/* feedback fields and dirty flags */
+const fbCorrectInput = document.getElementById('fbCorrect');
+const fbWrongInput = document.getElementById('fbWrong');
+const fbFinishedInput = document.getElementById('fbFinished');
+let fbCorrectDirty = false, fbWrongDirty = false, fbFinishedDirty = false;
+
+/* color inputs */
+const correctColorInput = document.getElementById('correctColor');
+const wrongColorInput = document.getElementById('wrongColor');
+
+/* build state */
 function buildStateFromPairs(pairsRaw){
   const pairs = pairsRaw.map((p,i)=>({
     id: 'p'+i,
@@ -226,64 +313,107 @@ function buildStateFromPairs(pairsRaw){
   state.pairs = pairs;
   state.leftItems = shuffle(pairs.map(p=>({id:p.id, text:p.left, isImage:p.leftIsImage})));
   state.rightItems = shuffle(pairs.map(p=>({id:p.id, text:p.right, isImage:p.rightIsImage})));
-  state.mapping = {};
-  pairs.forEach(p=> state.mapping[p.id] = p.id);
-  state.selected = null;
-  state.score = 0;
+  state.mapping = {}; pairs.forEach(p=> state.mapping[p.id] = p.id);
+  state.selected = null; state.score = 0;
 }
 
-function clearBoard(){
-  colLeft.innerHTML='';
-  colRight.innerHTML='';
-  messageEl.textContent='';
+/* clear */
+function clearBoard(){ colLeft.innerHTML=''; colRight.innerHTML=''; messageEl.textContent=''; }
+
+/* make card */
+function makeCard(item, side){
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.dataset.side = side;
+  card.dataset.id = item.id;
+  if(item.isImage){
+    const img = document.createElement('img');
+    img.src = item.text;
+    img.alt = '';
+    img.onerror = ()=>{ img.style.opacity = 0.6; };
+    card.appendChild(img);
+  } else {
+    const txt = document.createElement('div');
+    txt.className = 'text';
+    txt.textContent = item.text;
+    card.appendChild(txt);
+  }
+  card.addEventListener('click', onCardClick);
+  return card;
 }
 
+/* render board (layouts: horizontal/vertical/random) */
 function renderBoard(){
   clearBoard();
   leftCountEl.textContent = state.leftItems.length;
   scoreEl.textContent = state.score;
-  state.leftItems.forEach(item=>{
-    const card = document.createElement('div');
-    card.className='card';
-    card.dataset.side='left';
-    card.dataset.id=item.id;
-    if(item.isImage){
-      const img = document.createElement('img');
-      img.src = item.text;
-      img.alt = '';
-      img.onerror = ()=>{ img.style.opacity = 0.6; };
-      card.appendChild(img);
-    }else{
-      const txt = document.createElement('div');
-      txt.className='text';
-      txt.textContent = item.text;
-      card.appendChild(txt);
-    }
-    card.addEventListener('click', onCardClick);
-    colLeft.appendChild(card);
-  });
-  state.rightItems.forEach(item=>{
-    const card = document.createElement('div');
-    card.className='card';
-    card.dataset.side='right';
-    card.dataset.id=item.id;
-    if(item.isImage){
-      const img = document.createElement('img');
-      img.src = item.text;
-      img.alt = '';
-      img.onerror = ()=>{ img.style.opacity = 0.6; };
-      card.appendChild(img);
-    }else{
-      const txt = document.createElement('div');
-      txt.className='text';
-      txt.textContent = item.text;
-      card.appendChild(txt);
-    }
-    card.addEventListener('click', onCardClick);
-    colRight.appendChild(card);
-  });
+
+  // set colors from inputs (applies to CSS variables)
+  const cCol = correctColorInput.value || getComputedStyle(document.documentElement).getPropertyValue('--correct-color') || '#16a34a';
+  const wCol = wrongColorInput.value || getComputedStyle(document.documentElement).getPropertyValue('--wrong-color') || '#ef4444';
+  stage.style.setProperty('--correct-color', cCol);
+  stage.style.setProperty('--wrong-color', wCol);
+
+  const layout = document.getElementById('layoutSelect').value;
+  stage.classList.remove('effect-blur','effect-glitch');
+
+  // apply background options if any
+  applyBackgroundOptions();
+
+  // remove previous scatter items
+  stage.querySelectorAll('.scatter-item').forEach(n=>n.remove());
+
+  if(layout === 'horizontal'){
+    gameArea.style.display = 'grid';
+    gameArea.style.gridTemplateColumns = '1fr 1fr';
+    colLeft.innerHTML = ''; colRight.innerHTML = '';
+    state.leftItems.forEach(item=> colLeft.appendChild(makeCard(item, 'left')));
+    state.rightItems.forEach(item=> colRight.appendChild(makeCard(item, 'right')));
+  } else if(layout === 'vertical'){
+    gameArea.style.display = 'grid';
+    gameArea.style.gridTemplateColumns = '1fr';
+    colLeft.innerHTML = ''; colRight.innerHTML = '';
+    // left above right
+    state.leftItems.forEach(item=> colLeft.appendChild(makeCard(item,'left')));
+    state.rightItems.forEach(item=> colRight.appendChild(makeCard(item,'right')));
+  } else if(layout === 'random'){
+    gameArea.style.display = 'block';
+    colLeft.innerHTML=''; colRight.innerHTML='';
+    stage.style.position = 'relative';
+    const all = shuffle([ ...state.leftItems.map(i=>({...i, side:'left'})), ...state.rightItems.map(i=>({...i, side:'right'})) ]);
+    const pad = 20;
+    const rect = stage.getBoundingClientRect();
+    const W = Math.max(rect.width - pad*2, 300);
+    const H = Math.max(rect.height - pad*2, 300);
+    const placed = [];
+    all.forEach((it)=>{
+      const card = makeCard(it, it.side);
+      card.classList.add('scatter-item');
+      let attempts=0;
+      while(attempts < 80){
+        const w = 140 + Math.random()*80; const h = 40 + Math.random()*80;
+        const x = pad + Math.random()*(W - w);
+        const y = pad + Math.random()*(H - h);
+        const ok = placed.every(p=> {
+          const dx = p.x - x; const dy = p.y - y;
+          return Math.sqrt(dx*dx + dy*dy) > Math.min(p.w,p.h) * 0.8;
+        });
+        if(ok || attempts>60){
+          placed.push({x,y,w,h});
+          card.style.left = Math.round(x) + 'px';
+          card.style.top = Math.round(y) + 'px';
+          card.style.width = Math.min(220, 120 + Math.random()*100) + 'px';
+          stage.appendChild(card);
+          break;
+        }
+        attempts++;
+      }
+      card.style.transform = `rotate(${(Math.random()*20-10).toFixed(1)}deg)`;
+    });
+  }
 }
 
+/* click logic */
 function onCardClick(e){
   const card = e.currentTarget;
   if(card.classList.contains('disabled')) return;
@@ -293,17 +423,15 @@ function onCardClick(e){
   if(!state.selected){
     state.selected = {side, id, el:card};
     card.classList.add('selected');
-    messageEl.textContent = 'Выбрано';
+    messageEl.textContent = '';
     return;
   }
-
   if(state.selected.el === card){
     state.selected = null;
     card.classList.remove('selected');
     messageEl.textContent = '';
     return;
   }
-
   if(state.selected.side === side){
     state.selected.el.classList.remove('selected');
     state.selected = {side, id, el:card};
@@ -317,7 +445,13 @@ function onCardClick(e){
   const leftCard = (side === 'left') ? card : state.selected.el;
   const rightCard = (side === 'right') ? card : state.selected.el;
 
+  // messages from inputs, fallback to locales
+  const fbCorrect = fbCorrectInput.value || t('correct');
+  const fbWrong = fbWrongInput.value || t('wrong');
+  const fbFinished = fbFinishedInput.value || t('finished');
+
   if(state.mapping[leftId] === rightId){
+    // correct
     leftCard.classList.add('correct','disabled');
     rightCard.classList.add('correct','disabled');
     leftCard.classList.remove('selected');
@@ -328,31 +462,33 @@ function onCardClick(e){
     state.score++;
     scoreEl.textContent = state.score;
     leftCountEl.textContent = state.leftItems.length;
-    messageEl.textContent = 'Правильно!';
-    setTimeout(()=>{
-      renderBoard();
-      if(state.leftItems.length === 0){
-        messageEl.textContent = 'Поздравляем! Все пары сопоставлены.';
-      }
-    }, 250);
+    messageEl.textContent = fbCorrect;
+    setTimeout(()=>{ renderBoard(); if(state.leftItems.length === 0) messageEl.textContent = fbFinished; }, 250);
     state.selected = null;
     return;
-  }else{
+  } else {
+    // wrong — add temporary visual flash using CSS var
+    const wrongColor = getComputedStyle(stage).getPropertyValue('--wrong-color') || '#ef4444';
     leftCard.classList.add('wrong');
     rightCard.classList.add('wrong');
-    messageEl.textContent = 'Неправильно...';
+    // add flash class for colored ring
+    leftCard.classList.add('flash-wrong');
+    rightCard.classList.add('flash-wrong');
+    // set inline var to ensure CSS sees color
+    stage.style.setProperty('--wrong-color', wrongColor.trim());
+    messageEl.textContent = fbWrong;
     setTimeout(()=>{
-      leftCard.classList.remove('wrong');
-      rightCard.classList.remove('wrong');
+      leftCard.classList.remove('wrong','flash-wrong');
+      rightCard.classList.remove('wrong','flash-wrong');
       if(state.selected) state.selected.el.classList.remove('selected');
       state.selected = null;
       messageEl.textContent = '';
-    }, 500);
+    }, 600);
     return;
   }
 }
 
-/* Controls */
+/* ---- controls ---- */
 const pairsInput = document.getElementById('pairsInput');
 const previewBtn = document.getElementById('previewBtn');
 const generateBtn = document.getElementById('generateBtn');
@@ -362,17 +498,72 @@ const startBtn = document.getElementById('startBtn');
 const clearBtn = document.getElementById('clearBtn');
 const previewH = document.getElementById('previewH');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
+const langSelect = document.getElementById('langSelect');
+const bgColor = document.getElementById('bgColor');
+const bgTransparent = document.getElementById('bgTransparent');
+const bgEffect = document.getElementById('bgEffect');
+const layoutSelect = document.getElementById('layoutSelect');
+const embedLabelEl = document.getElementById('embedLabel');
 
+/* apply locale to UI */
+function applyLocale(){
+  document.getElementById('titleText').textContent = t('title');
+  document.getElementById('subtitleText').textContent = t('subtitle');
+  document.getElementById('hintText').textContent = t('hint');
+  document.getElementById('pairsLabel').textContent = t('pairsLabel');
+  document.getElementById('settingsLabel').textContent = t('settings');
+  document.getElementById('layoutLabel').textContent = t('layout');
+  document.getElementById('previewHLabel').textContent = t('previewHeight');
+  embedLabelEl.textContent = t('embed');
+  document.getElementById('previewTitle').textContent = t('previewTitle');
+  document.getElementById('previewHint').textContent = t('previewHint');
+
+  // feedback inputs: set defaults if not dirty
+  if(!fbCorrectDirty) fbCorrectInput.value = t('correct');
+  if(!fbWrongDirty) fbWrongInput.value = t('wrong');
+  if(!fbFinishedDirty) fbFinishedInput.value = t('finished');
+}
+
+/* background application */
+function applyBackgroundOptions(){
+  const transparent = bgTransparent.checked;
+  const color = bgColor.value || '#071427';
+  const effect = bgEffect.value || 'none';
+  if(transparent){
+    stage.style.background = 'transparent';
+  } else {
+    stage.style.background = color;
+  }
+  stage.classList.remove('effect-blur','effect-glitch');
+  stage.style.filter = '';
+  if(effect === 'blur'){ stage.classList.add('effect-blur'); }
+  else if(effect === 'glitch'){ stage.classList.add('effect-glitch'); }
+}
+
+/* feedback input dirty tracking */
+fbCorrectInput.addEventListener('input', ()=>{ fbCorrectDirty = true; });
+fbWrongInput.addEventListener('input', ()=>{ fbWrongDirty = true; });
+fbFinishedInput.addEventListener('input', ()=>{ fbFinishedDirty = true; });
+
+/* color change apply to CSS var instantly */
+correctColorInput.addEventListener('input', ()=>{ stage.style.setProperty('--correct-color', correctColorInput.value); });
+wrongColorInput.addEventListener('input', ()=>{ stage.style.setProperty('--wrong-color', wrongColorInput.value); });
+
+/* build & render */
 function buildAndRender(){
   const raw = parsePairs(pairsInput.value);
   if(raw.length===0){
-    messageEl.textContent = 'Нет пар для отображения.';
+    messageEl.textContent = t('noPairs');
     clearBoard();
     leftCountEl.textContent = '0';
     scoreEl.textContent = '0';
     return;
   }
   buildStateFromPairs(raw);
+  applyBackgroundOptions();
+  // apply colors
+  stage.style.setProperty('--correct-color', correctColorInput.value);
+  stage.style.setProperty('--wrong-color', wrongColorInput.value);
   renderBoard();
 }
 
@@ -382,40 +573,47 @@ previewBtn.addEventListener('click', ()=>{
   document.getElementById('stage').style.minHeight = h + 'px';
 });
 
+/* generate iframe: include settings (colors, feedbacks, lang, layout, bg) */
 generateBtn.addEventListener('click', ()=>{
   const raw = parsePairs(pairsInput.value);
   if(raw.length===0){
     embedCodeEl.value = '';
-    alert('Сначала добавьте пары в редактор.');
+    alert(t('noPairs'));
     return;
   }
-  const gameObj = {pairs: raw};
-  const token = encodeGame(gameObj);
+  const settings = {
+    pairs: raw,
+    lang: currentLang,
+    bg: { color: bgColor.value, transparent: bgTransparent.checked, effect: bgEffect.value },
+    layout: layoutSelect.value,
+    colors: { correct: correctColorInput.value, wrong: wrongColorInput.value },
+    feedback: { correct: fbCorrectInput.value || t('correct'), wrong: fbWrongInput.value || t('wrong'), finished: fbFinishedInput.value || t('finished') }
+  };
+  const token = encodeGame(settings);
   let base;
-  try{
-    base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0];
-  }catch(e){
-    base = location.href.split('?')[0];
-  }
+  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
   const src = base + '?game=' + encodeURIComponent(token) + '&embed=1';
   const iframeCode = `<iframe src="${src}" style="width:100%;height:600px;border:0;" allowfullscreen></iframe>`;
   embedCodeEl.value = iframeCode;
   buildAndRender();
-  messageEl.textContent = 'Iframe сгенерирован. Скопируйте код справа.';
+  messageEl.textContent = t('addedMsg');
 });
 
-resetBtn.addEventListener('click', ()=>{
-  buildAndRender();
-  messageEl.textContent = 'Игра сброшена.';
-});
+/* reset/start/clear/fullscreen */
+resetBtn.addEventListener('click', ()=>{ buildAndRender(); messageEl.textContent=''; });
 
 startBtn.addEventListener('click', ()=>{
   const raw = parsePairs(pairsInput.value);
-  if(raw.length===0){
-    alert('Добавьте пары.');
-    return;
-  }
-  const token = encodeGame({pairs: raw});
+  if(raw.length===0){ alert(t('noPairs')); return; }
+  const settings = {
+    pairs: raw,
+    lang: currentLang,
+    bg: { color: bgColor.value, transparent: bgTransparent.checked, effect: bgEffect.value },
+    layout: layoutSelect.value,
+    colors: { correct: correctColorInput.value, wrong: wrongColorInput.value },
+    feedback: { correct: fbCorrectInput.value || t('correct'), wrong: fbWrongInput.value || t('wrong'), finished: fbFinishedInput.value || t('finished') }
+  };
+  const token = encodeGame(settings);
   let base;
   try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
   const src = base + '?game=' + encodeURIComponent(token);
@@ -423,37 +621,84 @@ startBtn.addEventListener('click', ()=>{
 });
 
 clearBtn.addEventListener('click', ()=>{
-  pairsInput.value = '';
-  embedCodeEl.value = '';
-  clearBoard();
-  leftCountEl.textContent = '0';
-  scoreEl.textContent = '0';
-  messageEl.textContent = '';
+  pairsInput.value = ''; embedCodeEl.value = ''; clearBoard(); leftCountEl.textContent='0'; scoreEl.textContent='0'; messageEl.textContent=''; });
+
+fullscreenBtn.addEventListener('click', ()=>{
+  const raw = parsePairs(pairsInput.value);
+  if(raw.length===0){ alert(t('noPairs')); return; }
+  const settings = {
+    pairs: raw,
+    lang: currentLang,
+    bg: { color: bgColor.value, transparent: bgTransparent.checked, effect: bgEffect.value },
+    layout: layoutSelect.value,
+    colors: { correct: correctColorInput.value, wrong: wrongColorInput.value },
+    feedback: { correct: fbCorrectInput.value || t('correct'), wrong: fbWrongInput.value || t('wrong'), finished: fbFinishedInput.value || t('finished') }
+  };
+  const token = encodeGame(settings);
+  let base;
+  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
+  const src = base + '?game=' + encodeURIComponent(token);
+  window.open(src, '_blank');
 });
 
-/* support режима при загрузке ?game=... */
-function getQueryParam(name){
-  const params = new URLSearchParams(location.search);
-  return params.get(name);
-}
+/* change language -> apply locale and update feedback if not dirty */
+langSelect.addEventListener('change', ()=>{
+  currentLang = langSelect.value;
+  applyLocale();
+});
+
+/* background controls */
+bgColor.addEventListener('input', applyBackgroundOptions);
+bgTransparent.addEventListener('change', applyBackgroundOptions);
+bgEffect.addEventListener('change', applyBackgroundOptions);
+
+/* ---- embed / game-only mode ---- */
+function getQueryParam(name){ return new URLSearchParams(location.search).get(name); }
 
 function runEmbeddedGameFromParam(){
   const gameToken = getQueryParam('game');
   if(!gameToken) return false;
   const obj = decodeGame(gameToken);
-  if(!obj || !Array.isArray(obj.pairs)) {
-    messageEl.textContent = 'Неверный формат игры.';
-    return true;
-  }
+  if(!obj || !Array.isArray(obj.pairs)) { messageEl.textContent = t('invalidGame'); return true; }
   const embed = getQueryParam('embed') !== null;
+
+  // apply settings if present
+  currentLang = obj.lang || currentLang;
+  langSelect.value = currentLang;
+  applyLocale();
+
+  if(obj.bg){
+    if(obj.bg.color) bgColor.value = obj.bg.color;
+    if(typeof obj.bg.transparent === 'boolean') bgTransparent.checked = obj.bg.transparent;
+    if(obj.bg.effect) bgEffect.value = obj.bg.effect;
+  }
+  if(obj.layout) layoutSelect.value = obj.layout;
+  if(obj.colors){
+    if(obj.colors.correct) correctColorInput.value = obj.colors.correct;
+    if(obj.colors.wrong) wrongColorInput.value = obj.colors.wrong;
+    stage.style.setProperty('--correct-color', correctColorInput.value);
+    stage.style.setProperty('--wrong-color', wrongColorInput.value);
+  }
+  if(obj.feedback){
+    // apply feedback texts and mark dirty (so UI won't override on lang change)
+    fbCorrectInput.value = obj.feedback.correct || fbCorrectInput.value;
+    fbWrongInput.value = obj.feedback.wrong || fbWrongInput.value;
+    fbFinishedInput.value = obj.feedback.finished || fbFinishedInput.value;
+    fbCorrectDirty = fbWrongDirty = fbFinishedDirty = true;
+  }
+
   if(embed){
-    const editorPanel = document.getElementById('editorPanel');
-    if(editorPanel) editorPanel.parentNode.removeChild(editorPanel);
+    // hide editor UI and disable "Open full" button in embed mode
+    const editorPanel = document.getElementById('editorPanel'); if(editorPanel) editorPanel.remove();
     document.querySelector('header')?.remove();
     document.querySelector('footer')?.remove();
     document.getElementById('appRoot').style.gridTemplateColumns = '1fr';
     document.body.style.background = 'linear-gradient(180deg,#041023,#071127)';
+    // remove or hide the Open full button so user cannot go to editor/full version from embedded iframe
+    const fullBtn = document.getElementById('fullscreenBtn');
+    if(fullBtn) fullBtn.remove();
   }
+
   pairsInput.value = obj.pairs.map(p=>p.left + ' | ' + p.right).join('\n');
   buildAndRender();
   if(embed){
@@ -462,25 +707,24 @@ function runEmbeddedGameFromParam(){
   return true;
 }
 
+/* ---- init ---- */
 window.addEventListener('load', ()=>{
+  applyLocale();
+  applyBackgroundOptions();
   const handled = runEmbeddedGameFromParam();
   if(!handled){
-    if(!pairsInput.value) {
+    if(!pairsInput.value){
       pairsInput.value = 'Apple | https://i.imgur.com/8Km9tLL.png\nCat | https://i.imgur.com/5bY0X3j.png\nBanana | https://i.imgur.com/1nP9K7G.jpg';
     }
     buildAndRender();
+  } else {
+    applyLocale();
   }
 });
 
-fullscreenBtn.addEventListener('click', ()=>{
-  const raw = parsePairs(pairsInput.value);
-  if(raw.length===0){ alert('Нет пар.'); return; }
-  const token = encodeGame({pairs: raw});
-  let base;
-  try{ base = location.origin && location.origin !== 'null' ? location.origin + location.pathname : location.href.split('?')[0]; }catch(e){ base = location.href.split('?')[0]; }
-  const src = base + '?game=' + encodeURIComponent(token);
-  window.open(src, '_blank');
-});
+/* responsive: re-render random layout on resize to reposition scatter */
+let resizeTimeout;
+window.addEventListener('resize', ()=>{ clearTimeout(resizeTimeout); resizeTimeout = setTimeout(()=>{ if(layoutSelect.value==='random') renderBoard(); }, 200); });
 </script>
 </body>
 </html>
